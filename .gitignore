@@ -1,0 +1,16 @@
+# Generated corpus, index, and dedup state. Never commit downloaded dataset data.
+data/processed/
+
+# Python bytecode and environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp

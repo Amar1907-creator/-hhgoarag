@@ -1,0 +1,257 @@
+{
+  "dataset_id": "ai4bharat/MSMARCO-XI",
+  "revision": "bf5cdc1f26e581e519018e434db14edd1b77602b",
+  "processing_timestamp": "2026-08-20T16:45:23.128180+00:00",
+  "method": "Hugging Face Hub file metadata + remote Parquet footer only; no data row groups downloaded",
+  "files": [
+    {
+      "path": "train/asmtrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3789324486,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "asm",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10948b8c0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/bentrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3727370553,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "ben",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f8f54c0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/gujtrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3718439546,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "guj",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f97f3c0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/hintrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3719813179,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "hin",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f8e3140>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/kantrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3892610876,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "kan",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f963680>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/maltrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3986867780,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "mal",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f025180>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/martrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3756780048,
+      "rows": 765873,
+      "row_groups": 1,
+      "language_file_code": "mar",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f961d80>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/neptrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3633169552,
+      "rows": 754154,
+      "row_groups": 1,
+      "language_file_code": "nep",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f912e00>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/oritrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3778629786,
+      "rows": 782282,
+      "row_groups": 1,
+      "language_file_code": "ori",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f913480>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/pantrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3708783621,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "pan",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f936080>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/santrain.parquet",
+      "split": "train",
+      "file_size_bytes": 4001524369,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "san",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f966e80>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/tamtrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3987720629,
+      "rows": 778638,
+      "row_groups": 1,
+      "language_file_code": "tam",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f007c00>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "train/urdtrain.parquet",
+      "split": "train",
+      "file_size_bytes": 3339235620,
+      "rows": 770089,
+      "row_groups": 1,
+      "language_file_code": "urd",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10918a6c0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/asmval.parquet",
+      "split": "validation",
+      "file_size_bytes": 470284966,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "asm",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f944c40>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/benval.parquet",
+      "split": "validation",
+      "file_size_bytes": 462777608,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "ben",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x110430240>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/gujval.parquet",
+      "split": "validation",
+      "file_size_bytes": 461249303,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "guj",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x110429840>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/hinval.parquet",
+      "split": "validation",
+      "file_size_bytes": 461888616,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "hin",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f97edc0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/kanval.parquet",
+      "split": "validation",
+      "file_size_bytes": 482734885,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "kan",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f10f6c0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/malval.parquet",
+      "split": "validation",
+      "file_size_bytes": 493598017,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "mal",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x108eaaa00>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/marval.parquet",
+      "split": "validation",
+      "file_size_bytes": 473618819,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "mar",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x1094c0cc0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/nepval.parquet",
+      "split": "validation",
+      "file_size_bytes": 466513930,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "nep",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x1104284c0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/orival.parquet",
+      "split": "validation",
+      "file_size_bytes": 466515731,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "ori",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10916e300>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/panval.parquet",
+      "split": "validation",
+      "file_size_bytes": 459536147,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "pan",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f9b0cc0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/sanval.parquet",
+      "split": "validation",
+      "file_size_bytes": 494213431,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "san",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f174ec0>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/tamval.parquet",
+      "split": "validation",
+      "file_size_bytes": 493049000,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "tam",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f9b1800>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/telval.parquet",
+      "split": "validation",
+      "file_size_bytes": 474142748,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "tel",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x110430500>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    },
+    {
+      "path": "validation/urdval.parquet",
+      "split": "validation",
+      "file_size_bytes": 419206311,
+      "rows": 97941,
+      "row_groups": 1,
+      "language_file_code": "urd",
+      "schema": "<pyarrow._parquet.ParquetSchema object at 0x10f9acf80>\nrequired group field_id=-1 schema {\n  optional binary field_id=-1 source_lang (String);\n  optional binary field_id=-1 target_lang (String);\n  optional group field_id=-1 meta {\n    optional int64 field_id=-1 frequency_penalty;\n    optional int64 field_id=-1 max_tokens;\n    optional binary field_id=-1 model_name (String);\n    optional int64 field_id=-1 presence_penalty;\n    optional int64 field_id=-1 temperature;\n    optional int64 field_id=-1 top_p;\n  }\n  optional binary field_id=-1 Answer (String);\n  optional int64 field_id=-1 query_id;\n  optional binary field_id=-1 query_type (String);\n  optional group field_id=-1 passages {\n    optional group field_id=-1 English_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 Translated_passages (List) {\n      repeated group field_id=-1 list {\n        optional binary field_id=-1 element (String);\n      }\n    }\n    optional group field_id=-1 is_selected (List) {\n      repeated group field_id=-1 list {\n        optional int64 field_id=-1 element;\n      }\n    }\n  }\n  optional binary field_id=-1 Eng_Query (String);\n  optional binary field_id=-1 Eng_Answer (String);\n  optional binary field_id=-1 query (String);\n}\n"
+    }
+  ],
+  "rows_by_split": {
+    "train": 10080140,
+    "validation": 1371174
+  },
+  "total_rows": 11451314,
+  "total_file_bytes": 55619599557
+}
