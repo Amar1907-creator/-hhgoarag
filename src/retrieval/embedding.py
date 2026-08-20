@@ -18,17 +18,29 @@ class Embedder(Protocol):
 class SentenceTransformerE5:
     """Multilingual E5 adapter; document/query prefixes are part of its contract."""
 
-    def __init__(self, model_name: str = "intfloat/multilingual-e5-small", device: str | None = None) -> None:
+    def __init__(
+        self,
+        model_name: str = "intfloat/multilingual-e5-small",
+        device: str | None = None,
+        batch_size: int = 64,
+    ) -> None:
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as exc:
             raise RuntimeError("install sentence-transformers to use a production embedder") from exc
         self.model_name = model_name
+        self.device = device
+        self.batch_size = batch_size
         self.model = SentenceTransformer(model_name, device=device)
         self.dimension = self.model.get_sentence_embedding_dimension()
 
     def _embed(self, prefix: str, texts: Sequence[str]) -> np.ndarray:
-        vectors = self.model.encode([prefix + text for text in texts], normalize_embeddings=True, show_progress_bar=False)
+        vectors = self.model.encode(
+            [prefix + text for text in texts],
+            normalize_embeddings=True,
+            show_progress_bar=False,
+            batch_size=self.batch_size,
+        )
         return np.asarray(vectors, dtype=np.float32)
 
     def embed_queries(self, texts: Sequence[str]) -> np.ndarray:
