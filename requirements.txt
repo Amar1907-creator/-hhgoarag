@@ -3,3 +3,7 @@ huggingface_hub==0.36.2
 pyarrow==23.0.1
 faiss-cpu==1.13.2
 sentence-transformers==5.3.0
+
+# Optional: only needed for grounded answer generation (scripts/demo.py --generator claude).
+# Without it the demo falls back to the extractive evidence-only generator.
+anthropic>=0.39
