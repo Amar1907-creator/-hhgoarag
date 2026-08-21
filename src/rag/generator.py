@@ -1,7 +1,13 @@
 """Answer generation constrained to retrieved evidence.
 
+The runtime generator is a LOCAL open-source model served by Ollama. No hosted
+API and no API key is involved anywhere in this module: the product must keep
+working on a machine with no accounts attached to it. If Ollama is not running
+or has no usable model, generation degrades to a verbatim extractive answer,
+which is never ungrounded and needs nothing installed at all.
+
 Evidence is presented to the model as numbered items and citations come back as
-those numbers, not as 66-character passage hashes: a model asked to copy hashes
+those numbers, not 66-character passage hashes: a model asked to copy hashes
 will eventually corrupt one, and a corrupted citation is indistinguishable from
 an invented one. Numbers are mapped back to passage IDs here, and anything out
 of range is dropped by the caller's citation check.
@@ -10,21 +16,43 @@ of range is dropped by the caller's citation check.
 from __future__ import annotations
 
 import json
+import os
 import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from src.rag.evidence import EvidenceSet
 
-DEFAULT_MODEL = "claude-sonnet-4-5"
-DEFAULT_MAX_TOKENS = 800
-INSUFFICIENT = "INSUFFICIENT_EVIDENCE"
+DEFAULT_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+DEFAULT_TIMEOUT = float(os.environ.get("HHGOARAG_LLM_TIMEOUT", "120"))
+DEFAULT_NUM_PREDICT = 400
+
+# Ranked by Hindi instruction-following quality per GB of RAM. The first entry
+# that is actually installed wins; nothing is downloaded implicitly.
+MODEL_PREFERENCE = (
+    "qwen2.5:7b-instruct",
+    "qwen2.5:7b",
+    "aya-expanse:8b",
+    "gemma2:9b-instruct",
+    "gemma2:9b",
+    "llama3.1:8b-instruct",
+    "llama3.1:8b",
+    "qwen2.5:3b-instruct",
+    "qwen2.5:3b",
+    "gemma2:2b",
+    "qwen2.5:1.5b-instruct",
+)
+# What to suggest pulling when nothing suitable is installed.
+RECOMMENDED_LARGE = "qwen2.5:7b-instruct"   # ~4.7 GB, best Hindi of the small models
+RECOMMENDED_SMALL = "qwen2.5:3b-instruct"   # ~2.0 GB, for 8 GB machines
 
 SYSTEM_PROMPT = """You answer questions using ONLY the numbered evidence passages supplied to you.
 
 Rules, in priority order:
 1. Never state a fact that is not present in the evidence. You have no other knowledge for this task.
-2. If the evidence does not answer the question, reply with insufficient=true and leave answer empty. Answering weakly is worse than abstaining.
+2. If the evidence does not answer the question, reply with insufficient=true and an empty answer. Answering weakly is worse than abstaining.
 3. Answer in the SAME language as the question. The evidence is Hindi; if the question is Hindi, answer in Hindi.
 4. Cite the evidence numbers you actually used. Every claim must be traceable to a cited passage.
 5. Be brief: two or three sentences at most.
@@ -70,17 +98,18 @@ def parse_response(text: str, evidence: EvidenceSet) -> tuple[str, list[str], bo
         except json.JSONDecodeError:
             payload = None
     if payload is None:
-        # No parseable JSON: treat the whole reply as prose with no citations,
-        # which the caller's grounding check will then reject.
         stripped = text.strip()
-        return stripped, [], stripped.upper().startswith(INSUFFICIENT) or not stripped
+        return stripped, [], not stripped
 
     answer = str(payload.get("answer") or "").strip()
     insufficient = bool(payload.get("insufficient", False)) or not answer
     citations: list[str] = []
-    for value in payload.get("citations") or []:
+    raw_citations = payload.get("citations") or []
+    if isinstance(raw_citations, (int, str)):
+        raw_citations = [raw_citations]
+    for value in raw_citations:
         try:
-            number = int(value)
+            number = int(str(value).strip().lstrip("[").rstrip("]"))
         except (TypeError, ValueError):
             continue
         if 1 <= number <= len(evidence.items):
@@ -91,14 +120,14 @@ def parse_response(text: str, evidence: EvidenceSet) -> tuple[str, list[str], bo
 
 
 class ExtractiveGenerator:
-    """Zero-dependency fallback: quote the best passage verbatim.
+    """Quote the best passage verbatim.
 
-    Not an answer, but it is never ungrounded, needs no API key, and keeps the
-    demo runnable offline. ARCHITECTURE.md names this as the fallback when
-    generation is unavailable or too slow.
+    Not a synthesised answer, but it is never ungrounded, needs no model, no
+    network and no account, and keeps the product demonstrable on any machine.
     """
 
     name = "extractive"
+    available = True
 
     def generate(self, question: str, evidence: EvidenceSet) -> GeneratedAnswer:
         if not evidence.items:
@@ -108,64 +137,125 @@ class ExtractiveGenerator:
                                insufficient=False, model=self.name)
 
 
-class ClaudeGenerator:
-    """Anthropic-backed generator. The API key is read from ANTHROPIC_API_KEY."""
+class OllamaError(RuntimeError):
+    pass
 
-    def __init__(self, model: str = DEFAULT_MODEL, *, max_tokens: int = DEFAULT_MAX_TOKENS,
-                 api_key: str | None = None, client: Any = None) -> None:
-        self.model = model
-        self.max_tokens = max_tokens
-        self.name = f"claude:{model}"
-        if client is not None:
-            self.client = client
-            return
-        try:
-            import anthropic
-        except ImportError as exc:
-            raise RuntimeError(
-                "install the anthropic package to generate answers "
-                "(python3 -m pip install anthropic), or run with --generator extractive"
-            ) from exc
-        import os
-        key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if not key:
-            raise RuntimeError(
-                "ANTHROPIC_API_KEY is not set. Export it, or run with --generator extractive "
-                "to use the offline evidence-only fallback."
-            )
-        self.client = anthropic.Anthropic(api_key=key)
 
-    def _resolve_model(self) -> None:
-        """If the configured model id is unknown, pick the newest available one."""
-        try:
-            available = [entry.id for entry in self.client.models.list(limit=50).data]
-        except Exception:
-            return
-        if self.model in available:
-            return
-        preferred = [name for name in available if "sonnet" in name] or available
-        if preferred:
-            self.model = preferred[0]
-            self.name = f"claude:{self.model}"
+def _post_json(url: str, payload: dict, timeout: float) -> dict:
+    request = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _get_json(url: str, timeout: float) -> dict:
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def installed_models(host: str = DEFAULT_OLLAMA_HOST, timeout: float = 5.0) -> list[str]:
+    """Model tags currently pulled into Ollama. Empty if it is not reachable."""
+    try:
+        payload = _get_json(f"{host.rstrip('/')}/api/tags", timeout)
+    except Exception:
+        return []
+    return [entry.get("name", "") for entry in payload.get("models", []) if entry.get("name")]
+
+
+def choose_model(available: list[str], preference: tuple[str, ...] = MODEL_PREFERENCE) -> str | None:
+    """Best installed model by preference order, tolerant of quantisation tags."""
+    for wanted in preference:
+        for name in available:
+            if name == wanted or name.startswith(wanted + "-") or name.split(":")[0] == wanted.split(":")[0] \
+                    and name.startswith(wanted):
+                return name
+    # Nothing preferred: fall back to any instruct-looking model rather than none.
+    for name in available:
+        if "instruct" in name.lower():
+            return name
+    return available[0] if available else None
+
+
+class OllamaGenerator:
+    """Local open-source generation. No API key, no hosted service."""
+
+    def __init__(self, model: str | None = None, *, host: str = DEFAULT_OLLAMA_HOST,
+                 timeout: float = DEFAULT_TIMEOUT, num_predict: int = DEFAULT_NUM_PREDICT,
+                 transport=None) -> None:
+        self.host = host.rstrip("/")
+        self.timeout = timeout
+        self.num_predict = num_predict
+        self._transport = transport or (lambda payload: _post_json(f"{self.host}/api/chat", payload, self.timeout))
+        requested = model or os.environ.get("HHGOARAG_LLM_MODEL")
+        self.available_models = installed_models(self.host) if transport is None else [requested or RECOMMENDED_SMALL]
+        self.model = requested or choose_model(self.available_models) or ""
+        self.available = bool(self.model)
+        self.name = f"ollama:{self.model}" if self.model else "ollama:unavailable"
+
+    def status(self) -> dict:
+        return {"runtime": "ollama", "host": self.host, "model": self.model,
+                "available": self.available, "installed_models": self.available_models,
+                "requires_api_key": False}
 
     def generate(self, question: str, evidence: EvidenceSet) -> GeneratedAnswer:
-        prompt = build_prompt(question, evidence)
-        for attempt in (1, 2):
-            try:
-                response = self.client.messages.create(
-                    model=self.model, max_tokens=self.max_tokens, temperature=0,
-                    system=SYSTEM_PROMPT, messages=[{"role": "user", "content": prompt}])
-                break
-            except Exception as exc:
-                if attempt == 1 and "not_found" in str(exc).lower():
-                    self._resolve_model()
-                    continue
-                raise
-        text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
+        if not self.available:
+            raise OllamaError(
+                f"no local model available from Ollama at {self.host}. Start it with `ollama serve` "
+                f"and pull a model, e.g. `ollama pull {RECOMMENDED_SMALL}`.")
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": SYSTEM_PROMPT},
+                         {"role": "user", "content": build_prompt(question, evidence)}],
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": 0, "num_predict": self.num_predict},
+        }
+        try:
+            response = self._transport(payload)
+        except urllib.error.URLError as exc:
+            raise OllamaError(f"Ollama at {self.host} is not reachable: {exc.reason}") from exc
+        except Exception as exc:
+            raise OllamaError(f"Ollama request failed: {exc}") from exc
+
+        text = (response.get("message") or {}).get("content", "") or response.get("response", "")
         answer, citations, insufficient = parse_response(text, evidence)
         usage = {}
-        if getattr(response, "usage", None):
-            usage = {"input_tokens": response.usage.input_tokens,
-                     "output_tokens": response.usage.output_tokens}
+        if response.get("eval_count") is not None:
+            usage = {"prompt_tokens": response.get("prompt_eval_count"),
+                     "output_tokens": response.get("eval_count"),
+                     "generation_ms": round((response.get("eval_duration") or 0) / 1e6, 1)}
         return GeneratedAnswer(answer=answer, citations=citations, insufficient=insufficient,
                                model=self.model, raw=text, usage=usage)
+
+
+class FallbackGenerator:
+    """Try the local model; fall back to extraction rather than failing a query."""
+
+    def __init__(self, primary: Generator, fallback: Generator | None = None) -> None:
+        self.primary = primary
+        self.fallback = fallback or ExtractiveGenerator()
+        self.name = getattr(primary, "name", "primary")
+        self.degraded = False
+
+    def generate(self, question: str, evidence: EvidenceSet) -> GeneratedAnswer:
+        try:
+            answer = self.primary.generate(question, evidence)
+            self.degraded = False
+            return answer
+        except Exception:
+            self.degraded = True
+            answer = self.fallback.generate(question, evidence)
+            answer.model = f"{self.fallback.name} (local model unavailable)"
+            return answer
+
+
+def build_generator(kind: str = "auto", *, model: str | None = None,
+                    host: str = DEFAULT_OLLAMA_HOST) -> Generator:
+    """Resolve the runtime generator. 'auto' prefers local generation, then extraction."""
+    if kind == "extractive":
+        return ExtractiveGenerator()
+    generator = OllamaGenerator(model=model, host=host)
+    if kind == "ollama":
+        return generator
+    return FallbackGenerator(generator) if generator.available else ExtractiveGenerator()

@@ -86,12 +86,12 @@ def main() -> None:
             return f"{value:.2f} ms"
         return "not recorded (manifest predates this metric)" if block else MISSING
 
-    claude_ready = (root / "src" / "rag" / "pipeline.py").exists()
-    try:
-        import anthropic  # noqa: F401
-        sdk = "anthropic SDK installed"
-    except ImportError:
-        sdk = "anthropic SDK not installed (extractive fallback available)"
+    rag_ready = (root / "src" / "rag" / "pipeline.py").exists()
+    from src.rag.generator import RECOMMENDED_SMALL, installed_models
+    local_models = installed_models()
+    runtime = (f"local model via Ollama ({local_models[0]})" if local_models
+               else f"no local model installed; extractive fallback in use "
+                    f"(optional: ollama pull {RECOMMENDED_SMALL})")
 
     rows = [
         ("1. Dataset", f"ai4bharat/MSMARCO-XI @ {build.get('revision', MISSING)[:12]} "
@@ -115,7 +115,8 @@ def main() -> None:
         ("9. MRR", f"{invalid}{metrics['mrr']:.4f}" if "mrr" in metrics else MISSING),
         ("10. p50 latency", latency_of(total_latency, "p50_ms")),
         ("11. p95 latency", latency_of(total_latency, "p95_ms")),
-        ("12. Claude integration", f"{'implemented' if claude_ready else MISSING}; {sdk}"),
+        ("12. Answer generation", f"{'implemented' if rag_ready else MISSING}; {runtime}; "
+                                  f"requires no API key"),
         ("13. Tests", tests),
     ]
 
@@ -125,7 +126,9 @@ def main() -> None:
         "pipeline health measure, not a claim about Hindi retrieval quality in general.",
         f"Corpus covers {num(build.get('records_processed'))} of 778,638 Hindi train records.",
         "Single language (Hindi). No BM25, fusion, or reranking; dense retrieval only.",
-        "No STT stage; the demo is text in, text out.",
+        "Text in, text out; no speech stage.",
+        "Generated answers need a local Ollama model; without one the system quotes "
+        "retrieved evidence verbatim, which is still fully grounded.",
     ]
     if not metrics:
         limitations.insert(0, "No benchmark has been run for this prefix yet.")
@@ -136,7 +139,7 @@ def main() -> None:
                               f"measure corpus coverage, not retrieval quality. Rebuild the evaluation "
                               f"set against this corpus before quoting any of these numbers.")
 
-    demo = (f"python3 scripts/demo.py --corpus {corpus} --index-dir {index_dir} --samples")
+    demo = "./run.sh          # builds anything missing, then opens the app"
     lines = [f"# Project status: {args.prefix}", "",
              f"Generated {datetime.now(timezone.utc).isoformat(timespec='seconds')}", ""]
     for name, value in rows:

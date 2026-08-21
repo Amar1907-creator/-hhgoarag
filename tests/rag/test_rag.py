@@ -12,7 +12,7 @@ from src.rag.evidence import (
     EvidenceSet, Evidence, select_evidence, validate_citations,
 )
 from src.rag.generator import (
-    ClaudeGenerator, ExtractiveGenerator, GeneratedAnswer,
+    ExtractiveGenerator, GeneratedAnswer,
     build_prompt, format_evidence, parse_response,
 )
 from src.rag.pipeline import REASON_MODEL_ABSTAINED, REASON_UNGROUNDED, RagPipeline
@@ -114,40 +114,6 @@ class ResponseParsingTests(unittest.TestCase):
         for text in TEXTS.values():
             self.assertIn(text, prompt)
         self.assertIn("[1]", format_evidence(evidence_set()))
-
-
-class FakeClient:
-    """Stands in for anthropic.Anthropic; records what the model was sent."""
-
-    def __init__(self, reply: str):
-        self.reply = reply
-        self.calls = []
-        self.messages = self
-        self.usage_obj = type("U", (), {"input_tokens": 11, "output_tokens": 7})()
-
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
-        block = type("B", (), {"type": "text", "text": self.reply})()
-        return type("R", (), {"content": [block], "usage": self.usage_obj})()
-
-
-class ClaudeGeneratorTests(unittest.TestCase):
-    def test_generation_is_deterministic_and_grounded_by_construction(self):
-        client = FakeClient('{"answer": "यह उत्तर है", "citations": [1], "insufficient": false}')
-        generator = ClaudeGenerator(model="test-model", client=client)
-        result = generator.generate("सवाल?", evidence_set())
-        self.assertEqual(result.answer, "यह उत्तर है")
-        self.assertEqual(result.citations, ["p_a"])
-        self.assertEqual(result.usage, {"input_tokens": 11, "output_tokens": 7})
-        call = client.calls[0]
-        self.assertEqual(call["temperature"], 0)
-        self.assertIn("ONLY the numbered evidence", call["system"])
-        self.assertIn("सवाल?", call["messages"][0]["content"])
-
-    def test_model_abstention_is_passed_through(self):
-        client = FakeClient('{"answer": "", "citations": [], "insufficient": true}')
-        result = ClaudeGenerator(model="m", client=client).generate("q", evidence_set())
-        self.assertTrue(result.insufficient)
 
 
 class StubEmbedder:

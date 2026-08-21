@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.rag.generator import DEFAULT_MODEL, ClaudeGenerator, ExtractiveGenerator
+from src.rag.generator import build_generator, installed_models
 from src.rag.pipeline import RagPipeline
 
 SAMPLE_QUESTIONS = [
@@ -55,8 +55,8 @@ def main() -> None:
     parser.add_argument("--corpus", type=Path, default=Path("data/processed/hi-train-5k-corpus.jsonl"))
     parser.add_argument("--index-dir", type=Path, default=Path("data/processed/hi-train-5k-index"))
     parser.add_argument("--model", default="intfloat/multilingual-e5-small")
-    parser.add_argument("--generator", choices=("claude", "extractive"), default="claude")
-    parser.add_argument("--claude-model", default=DEFAULT_MODEL)
+    parser.add_argument("--generator", choices=("auto", "ollama", "extractive"), default="auto")
+    parser.add_argument("--llm-model", default=None, help="Ollama model tag; best installed by default")
     parser.add_argument("--device", default=None)
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--max-evidence", type=int, default=5)
@@ -73,15 +73,10 @@ def main() -> None:
         if not path.exists():
             raise SystemExit(f"missing {path}. Run scripts/run_pipeline.py first.")
 
-    generator = None
-    if args.generator == "claude":
-        try:
-            generator = ClaudeGenerator(model=args.claude_model)
-        except RuntimeError as exc:
-            print(f"[demo] {exc}\n[demo] falling back to the extractive generator", file=sys.stderr)
-            generator = ExtractiveGenerator()
-    else:
-        generator = ExtractiveGenerator()
+    generator = build_generator(args.generator, model=args.llm_model)
+    if args.generator != "extractive" and not installed_models():
+        print("[demo] no local Ollama model reachable; answers will quote retrieved "
+              "evidence verbatim (still fully grounded).", file=sys.stderr)
 
     pipeline = RagPipeline.load(corpus=args.corpus, index_dir=args.index_dir, model=args.model,
                                 device=args.device, generator=generator, top_k=args.top_k,

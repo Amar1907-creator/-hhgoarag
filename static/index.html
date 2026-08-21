@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HHGOARAG — Hindi Grounded Answers</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#ffffff; --panel-2:#f2f1ee; --ink:#1a1a18; --ink-2:#5d5d57;
+  --ink-3:#8a8a82; --line:#e3e2dd; --accent:#b8501f; --accent-ink:#ffffff;
+  --good:#2f7d55; --warn:#a8791a; --bad:#a33c2b; --focus:#b8501f;
+  --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#17171a; --panel:#1f1f23; --panel-2:#26262b; --ink:#f0efec; --ink-2:#b3b2ac;
+         --ink-3:#84837d; --line:#33333a; --accent:#e0764a; --accent-ink:#17171a;
+         --good:#5fbf8b; --warn:#dcae55; --bad:#e08472;
+         --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35); }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Nirmala UI",sans-serif;
+  line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:40px;height:40px;border-radius:11px;background:var(--accent);color:var(--accent-ink);
+  display:grid;place-items:center;font-weight:700;font-size:17px;letter-spacing:-.5px;flex:none}
+h1{font-size:21px;margin:0;letter-spacing:-.3px;font-weight:650}
+.tag{color:var(--ink-2);font-size:13.5px;margin:2px 0 0}
+.pill{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
+.dot.ok{background:var(--good)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.ask{padding:18px}
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);
+  padding:14px 15px;font:inherit;font-size:17px;resize:vertical;min-height:88px;outline:none}
+textarea:focus{border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in oklab,var(--focus) 18%,transparent)}
+.row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+button{font:inherit;border-radius:9px;border:1px solid transparent;padding:10px 20px;cursor:pointer;font-weight:600}
+.primary{background:var(--accent);color:var(--accent-ink)}
+.primary:disabled{opacity:.55;cursor:progress}
+.ghost{background:transparent;border-color:var(--line);color:var(--ink-2);padding:7px 13px;font-size:13px;font-weight:500}
+.ghost:hover{border-color:var(--ink-3);color:var(--ink)}
+.hint{color:var(--ink-3);font-size:12.5px;margin-left:auto}
+.samples{margin-top:16px}
+.samples .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);margin-bottom:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:7px 14px;
+  font-size:14px;cursor:pointer;color:var(--ink-2);text-align:left}
+.chip:hover{border-color:var(--accent);color:var(--ink)}
+.chip .why{font-size:11px;color:var(--ink-3);display:block}
+#out{margin-top:22px;display:none}
+.answer{padding:22px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.badge{font-size:12px;padding:4px 11px;border-radius:999px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--ink-2);display:inline-flex;align-items:center;gap:6px}
+.badge.high{color:var(--good);border-color:color-mix(in oklab,var(--good) 40%,var(--line))}
+.badge.medium{color:var(--warn);border-color:color-mix(in oklab,var(--warn) 40%,var(--line))}
+.badge.low,.badge.none{color:var(--bad);border-color:color-mix(in oklab,var(--bad) 40%,var(--line))}
+.atext{font-size:19px;line-height:1.75}
+.abstain .atext{color:var(--ink-2);font-size:17px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-3);
+  margin:24px 0 10px;font-weight:600}
+.cite{border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-bottom:10px;background:var(--panel-2)}
+.cite-head{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px;color:var(--ink-3)}
+.num{width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.bar{height:4px;background:var(--line);border-radius:2px;flex:1;max-width:140px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.ptext{font-size:15.5px;line-height:1.7;color:var(--ink);max-height:5.2em;overflow:hidden;position:relative}
+.ptext.open{max-height:none}
+.more{background:none;border:none;color:var(--accent);font-size:12.5px;padding:4px 0;cursor:pointer;font-weight:600}
+details{margin-top:8px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2)}
+summary{cursor:pointer;padding:12px 15px;font-size:13.5px;color:var(--ink-2);user-select:none}
+summary::marker{color:var(--ink-3)}
+.hit{display:flex;gap:11px;align-items:center;padding:8px 15px;font-size:12.5px;color:var(--ink-3);
+  border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.hit code{font-size:11.5px;color:var(--ink-3)}
+.timings{display:flex;gap:7px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.t{font-size:11.5px;color:var(--ink-3);background:var(--panel-2);border-radius:6px;padding:4px 9px;
+  font-variant-numeric:tabular-nums}
+.skel{padding:22px}
+.sk{height:13px;background:linear-gradient(90deg,var(--panel-2),var(--line),var(--panel-2));
+  background-size:200% 100%;animation:sh 1.3s infinite;border-radius:5px;margin-bottom:10px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.err{padding:18px 22px;border-left:3px solid var(--bad)}
+.err b{color:var(--bad)}
+footer{margin-top:34px;color:var(--ink-3);font-size:12.5px;text-align:center;line-height:1.9}
+footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
+@media(max-width:600px){.wrap{padding:20px 14px 60px}.atext{font-size:17.5px}h1{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark">हि</div>
+      <div>
+        <h1>HHGOARAG</h1>
+        <p class="tag">Hindi grounded retrieval &mdash; answers backed by cited passages</p>
+      </div>
+    </div>
+    <div class="pill" id="status"><span class="dot" id="dot"></span><span id="statustext">connecting…</span></div>
+  </header>
+
+  <div class="card ask">
+    <textarea id="q" placeholder="अपना प्रश्न हिंदी में लिखें…" spellcheck="false"></textarea>
+    <div class="row">
+      <button class="primary" id="ask">पूछें &nbsp;·&nbsp; Ask</button>
+      <button class="ghost" id="clear">Clear</button>
+      <span class="hint" id="hint">⌘/Ctrl + Enter</span>
+    </div>
+    <div class="samples">
+      <div class="lbl">Demonstration questions</div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+
+  <div id="out"></div>
+
+  <footer>
+    Retrieval decides what is true; the language model only phrases it.<br>
+    Runs entirely on this machine &mdash; no hosted API, no API key.
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const out = $("out");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const REASONS = {
+  sufficient_evidence: "Answer supported by retrieved passages",
+  no_retrieval_hits: "Nothing in the corpus matched this question",
+  best_score_below_threshold: "The closest passages were not similar enough to rely on",
+  insufficient_score_margin: "No passage stood out clearly enough",
+  model_reported_insufficient_evidence: "The evidence does not contain an answer to this question",
+  answer_without_valid_citations: "The draft answer could not be tied to a retrieved passage, so it was discarded",
+  empty_question: "Please enter a question"
+};
+
+async function boot(){
+  try{
+    const r = await fetch("/health");
+    const h = await r.json();
+    const ok = h.status === "ok";
+    $("dot").className = "dot " + (ok ? (h.generator_available ? "ok" : "warn") : "bad");
+    $("statustext").textContent = ok
+      ? `${h.corpus_passages.toLocaleString()} passages · ${h.device} · ${h.generator}`
+      : "not ready — build the corpus first";
+    $("status").title = ok
+      ? `index ${h.index_vectors.toLocaleString()} vectors · ${h.embedding_model} · loaded in ${h.load_seconds}s`
+      : (h.error || "");
+    if(!ok){ $("ask").disabled = true; showError("Service not ready", h.error || "Build the corpus and index first."); }
+  }catch(e){
+    $("dot").className = "dot bad"; $("statustext").textContent = "backend unreachable";
+  }
+  try{
+    const d = await (await fetch("/api/demo")).json();
+    $("chips").innerHTML = d.questions.map((q,i) =>
+      `<button class="chip" data-q="${esc(q.question)}">${esc(q.question)}
+        <span class="why">${esc(q.label || (q.expect === "abstention" ? "expects safe abstention" : "expects cited evidence"))}</span>
+      </button>`).join("");
+    document.querySelectorAll(".chip").forEach(c =>
+      c.onclick = () => { $("q").value = c.dataset.q; ask(); });
+  }catch(e){}
+}
+
+function showError(title, detail){
+  out.style.display = "block";
+  out.innerHTML = `<div class="card err"><b>${esc(title)}</b><div style="color:var(--ink-2);margin-top:6px">${esc(detail)}</div></div>`;
+}
+
+function loading(){
+  out.style.display = "block";
+  out.innerHTML = `<div class="card skel">
+    <div class="sk" style="width:34%"></div><div class="sk" style="width:92%"></div>
+    <div class="sk" style="width:86%"></div><div class="sk" style="width:60%"></div></div>`;
+}
+
+function render(d){
+  const conf = d.confidence || {band:"none", best_score:0};
+  const reason = REASONS[d.reason] || d.reason || "";
+  const timings = Object.entries(d.timings_ms || {})
+    .map(([k,v]) => `<span class="t">${esc(k)} ${v.toFixed(1)} ms</span>`).join("");
+
+  if(!d.grounded){
+    out.innerHTML = `<div class="card answer abstain">
+      <div class="badges">
+        <span class="badge none">◇ insufficient evidence</span>
+        <span class="badge">best match ${conf.best_score.toFixed(3)}</span>
+      </div>
+      <div class="atext"><b>पर्याप्त प्रमाण उपलब्ध नहीं है।</b><br>${esc(reason)}.</div>
+      ${d.retrieval && d.retrieval.length ? retrievalBlock(d) : ""}
+      <div class="timings">${timings}</div></div>`;
+    return;
+  }
+
+  const cites = (d.citations||[]).map((c,i) => `
+    <div class="cite">
+      <div class="cite-head">
+        <span class="num">${i+1}</span>
+        <span>similarity ${c.score.toFixed(3)}</span>
+        <span class="bar"><i style="width:${Math.max(4,Math.min(100,c.score*100)).toFixed(0)}%"></i></span>
+        <code>${esc(c.passage_id.slice(0,14))}…</code>
+      </div>
+      <div class="ptext" id="p${i}">${esc(c.text)}</div>
+      ${c.text.length > 260 ? `<button class="more" onclick="document.getElementById('p${i}').classList.toggle('open');this.textContent=this.textContent.startsWith('Show more')?'Show less':'Show more ▾'">Show more ▾</button>` : ""}
+    </div>`).join("");
+
+  out.innerHTML = `<div class="card answer">
+    <div class="badges">
+      <span class="badge ${esc(conf.band)}">● grounded · ${esc(conf.band)} confidence</span>
+      <span class="badge">${d.citations.length} cited passage${d.citations.length===1?"":"s"}</span>
+      <span class="badge">${esc(d.generator)}</span>
+      ${d.degraded ? '<span class="badge medium">local model unavailable — extractive fallback</span>' : ""}
+      ${d.invented_citations && d.invented_citations.length ? '<span class="badge low">uncheckable citations dropped</span>' : ""}
+    </div>
+    <div class="atext">${esc(d.answer)}</div>
+    <h2>Evidence</h2>
+    ${cites}
+    ${retrievalBlock(d)}
+    <div class="timings">${timings}<span class="t">served ${(d.served_in_ms||0).toFixed(1)} ms</span></div>
+  </div>`;
+}
+
+function retrievalBlock(d){
+  if(!d.retrieval || !d.retrieval.length) return "";
+  return `<details><summary>All ${d.retrieval.length} retrieved passages, ranked</summary>
+    ${d.retrieval.map((h,i) => `<div class="hit"><span>#${i+1}</span>
+      <span class="bar"><i style="width:${Math.max(4,Math.min(100,h.score*100)).toFixed(0)}%"></i></span>
+      <span>${h.score.toFixed(4)}</span><code>${esc(h.passage_id.slice(0,26))}…</code></div>`).join("")}
+  </details>`;
+}
+
+async function ask(){
+  const question = $("q").value.trim();
+  if(!question) return;
+  $("ask").disabled = true; loading();
+  try{
+    const r = await fetch("/api/query", {method:"POST", headers:{"Content-Type":"application/json"},
+                                          body: JSON.stringify({question})});
+    if(!r.ok){
+      const e = await r.json().catch(()=>({detail:r.statusText}));
+      showError(`Request failed (${r.status})`, e.detail || "Unknown error");
+    } else {
+      render(await r.json());
+    }
+  }catch(e){
+    showError("Could not reach the server", String(e));
+  }finally{ $("ask").disabled = false; }
+}
+
+$("ask").onclick = ask;
+$("clear").onclick = () => { $("q").value = ""; out.style.display = "none"; $("q").focus(); };
+$("q").addEventListener("keydown", e => { if((e.metaKey||e.ctrlKey) && e.key === "Enter") ask(); });
+boot();
+</script>
+</body>
+</html>

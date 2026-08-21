@@ -1,9 +1,16 @@
-# Required for pinned remote Parquet loading and retrieval benchmarking.
+# HHGOARAG runtime dependencies.
+#
+# There is deliberately NO hosted-LLM SDK here. The application requires no API
+# key and no account: answer generation uses a local open-source model served by
+# Ollama, and falls back to quoting retrieved evidence when that is unavailable.
+
+# Offline data pipeline: pinned remote Parquet ingestion and retrieval.
 huggingface_hub==0.36.2
 pyarrow==23.0.1
 faiss-cpu==1.13.2
 sentence-transformers==5.3.0
 
-# Optional: only needed for grounded answer generation (scripts/demo.py --generator claude).
-# Without it the demo falls back to the extractive evidence-only generator.
-anthropic>=0.39
+# Application layer.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2
