@@ -43,6 +43,41 @@ def assert_safe_to_write(paths: dict[str, Path], *, overwrite: bool) -> None:
         )
 
 
+def known_record_count(config: str, split: str) -> int | None:
+    """Row count for this language file, from the pinned inventory if present.
+
+    Used only for progress percentage and yield projection; absence is harmless.
+    """
+    inventory = Path("data/manifests/repository-inventory.json")
+    if not inventory.exists():
+        return None
+    try:
+        from src.data.loader import parquet_relative_path
+        relative = parquet_relative_path(split=split, config=config)
+        for entry in json.loads(inventory.read_text()).get("files", []):
+            if entry.get("path") == relative:
+                return int(entry["rows"])
+    except Exception:
+        return None
+    return None
+
+
+def format_duration(seconds: float) -> str:
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m{seconds % 60:02d}s"
+    return f"{seconds // 3600}h{(seconds % 3600) // 60:02d}m"
+
+
+def project_yield(queries_found: int, records_seen: int, total_records: int | None) -> int | None:
+    """Extrapolate the final query count from the join rate observed so far."""
+    if not records_seen or total_records is None:
+        return None
+    return int(round(queries_found / records_seen * total_records))
+
+
 def load_corpus_passage_ids(corpus_path: Path) -> set[str]:
     passage_ids: set[str] = set()
     with corpus_path.open(encoding="utf-8") as handle:
@@ -63,6 +98,8 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--output-prefix", help="artifact prefix; defaults to {config}-validation")
     parser.add_argument("--overwrite", action="store_true", help="allow replacing existing evaluation artifacts")
+    parser.add_argument("--progress-every", type=int, default=5000,
+                        help="report scan progress every N validation records (0 disables)")
     args = parser.parse_args()
 
     prefix = args.output_prefix or f"{args.config}-validation"
@@ -71,15 +108,47 @@ def main() -> None:
     assert_safe_to_write(paths, overwrite=args.overwrite)
 
     corpus_ids = load_corpus_passage_ids(args.corpus)
+    total_records = known_record_count(args.config, "validation")
     stats: Counter = Counter()
     started = time.perf_counter()
     emitted = 0
+    warned_low_yield = False
+
+    print(f"[eval] corpus {args.corpus} holds {len(corpus_ids):,} passage IDs", file=sys.stderr, flush=True)
+    if total_records:
+        print(f"[eval] scanning up to {total_records:,} validation records "
+              f"(the whole file is read unless --limit is reached first)", file=sys.stderr, flush=True)
 
     with paths["evaluation"].open("w", encoding="utf-8") as handle:
         for record_number, record in enumerate(
             load_split(split="validation", config=args.config, revision=args.revision), start=1
         ):
             stats["records_seen"] += 1
+            if args.progress_every and stats["records_seen"] % args.progress_every == 0:
+                elapsed = time.perf_counter() - started
+                rate = stats["records_seen"] / max(elapsed, 1e-9)
+                found = stats["evaluation_queries"]
+                percent = (100 * stats["records_seen"] / total_records) if total_records else None
+                remaining = ((total_records - stats["records_seen"]) / rate) if total_records else None
+                parts = [f"[eval] {stats['records_seen']:,}" +
+                         (f"/{total_records:,} ({percent:.0f}%)" if percent is not None else "") +
+                         f" records", f"{found} queries",
+                         f"join {100 * found / stats['records_seen']:.3f}%",
+                         f"{rate:.0f} rec/s", f"elapsed {format_duration(elapsed)}"]
+                if remaining is not None:
+                    parts.append(f"eta {format_duration(remaining)}")
+                print("  ".join(parts), file=sys.stderr, flush=True)
+
+                projected = project_yield(found, stats["records_seen"], total_records)
+                if (not warned_low_yield and projected is not None and projected < 25
+                        and stats["records_seen"] >= 5 * args.progress_every):
+                    warned_low_yield = True
+                    print(f"[eval] WARNING: at this join rate the whole file yields about "
+                          f"{projected} queries, far below the {args.limit or 'requested'} asked for. "
+                          f"The train corpus ({len(corpus_ids):,} passages) is almost certainly too "
+                          f"small for the validation positives to land in it. Consider stopping and "
+                          f"building a larger corpus under a new --output-prefix.",
+                          file=sys.stderr, flush=True)
             result = validate_record(record)
             if not result.valid:
                 stats["malformed_records"] += 1
@@ -115,6 +184,9 @@ def main() -> None:
                 break
 
     elapsed = time.perf_counter() - started
+    records_seen = stats["records_seen"]
+    print(f"[eval] done: {stats['evaluation_queries']} queries from {records_seen:,} records "
+          f"in {format_duration(elapsed)}", file=sys.stderr, flush=True)
     manifest = {
         "dataset_id": DATASET_ID,
         "revision": args.revision,
@@ -129,8 +201,11 @@ def main() -> None:
             "normalization": "nfkc-collapse-whitespace-v1",
             "positive_join": "validation is_selected labels intersected with train corpus passage_id set",
         },
-        "records_seen": stats["records_seen"],
+        "records_seen": records_seen,
         **stats,
+        "join_rate": (stats["evaluation_queries"] / records_seen) if records_seen else 0.0,
+        "records_per_second": (records_seen / elapsed) if elapsed else 0,
+        "scanned_whole_file": total_records is not None and records_seen >= total_records,
         "elapsed_seconds": elapsed,
         "evaluation": str(paths["evaluation"]),
     }
