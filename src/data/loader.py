@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
+
+from src.data.remote_parquet import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_BLOCK_SIZE,
+    DEFAULT_BUFFER_SIZE,
+    DEFAULT_MAX_ATTEMPTS,
+    CountingReader,
+    stream_records,
+)
 
 DATASET_ID = "ai4bharat/MSMARCO-XI"
 PINNED_REVISION = "bf5cdc1f26e581e519018e434db14edd1b77602b"
@@ -123,21 +132,54 @@ def records_from_batch(batch: Any) -> list[dict[str, Any]]:
     return records
 
 
-def load_split(*, split: str, config: str, revision: str, batch_size: int = 256) -> Iterable[dict]:
-    """Stream records from a pinned remote language Parquet file."""
+def remote_handle_factory(*, split: str, config: str, revision: str,
+                          block_size: int = DEFAULT_BLOCK_SIZE,
+                          counting: bool = False) -> Callable[[], Any]:
+    """Return a zero-argument opener for the pinned remote Parquet file.
+
+    A factory rather than an open handle: the streaming reader reopens the
+    source after a transient network fault, and needs to be able to do that
+    without knowing anything about the Hub.
+    """
     _validate_revision(revision)
     filesystem_path = hub_parquet_path(split=split, config=config, revision=revision)
-    try:
-        from huggingface_hub import HfFileSystem
-        import pyarrow.parquet as pq
-    except ImportError as exc:
-        raise RuntimeError("install huggingface_hub and pyarrow to load MSMARCO-XI Parquet files") from exc
 
-    filesystem = HfFileSystem()
-    with filesystem.open(filesystem_path, "rb") as handle:
-        parquet_file = pq.ParquetFile(handle)
-        for batch in parquet_file.iter_batches(batch_size=batch_size):
-            yield from records_from_batch(batch)
+    def opener() -> Any:
+        try:
+            from huggingface_hub import HfFileSystem
+        except ImportError as exc:
+            raise RuntimeError("install huggingface_hub and pyarrow to load MSMARCO-XI Parquet files") from exc
+        filesystem = HfFileSystem()
+        try:
+            # readahead keeps at most one block plus lookahead in memory, unlike
+            # the byte-range caches that grow toward whole-file retention.
+            handle = filesystem.open(filesystem_path, "rb", block_size=block_size, cache_type="readahead")
+        except TypeError:
+            handle = filesystem.open(filesystem_path, "rb", block_size=block_size)
+        return CountingReader(handle) if counting else handle
+
+    return opener
+
+
+def load_split(*, split: str, config: str, revision: str, batch_size: int = DEFAULT_BATCH_SIZE,
+               start_offset: int = 0, max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+               block_size: int = DEFAULT_BLOCK_SIZE, buffer_size: int = DEFAULT_BUFFER_SIZE,
+               log: Callable[[str], None] | None = None) -> Iterable[dict]:
+    """Stream records from a pinned remote language Parquet file.
+
+    Bounded memory: batches are converted and released one at a time, and the
+    Parquet reader is configured to read pages incrementally instead of
+    materialising the file's single 3.7 GB row group. See remote_parquet.py.
+    """
+    return stream_records(
+        open_handle=remote_handle_factory(split=split, config=config, revision=revision, block_size=block_size),
+        coerce=coerce_record,
+        batch_size=batch_size,
+        start_offset=start_offset,
+        max_attempts=max_attempts,
+        buffer_size=buffer_size,
+        log=log,
+    )
 
 
 def load_sample(*, split: str, config: str, revision: str, limit: int = 1) -> list[dict]:
