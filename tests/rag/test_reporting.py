@@ -1,7 +1,10 @@
 """Coverage gating and status reporting must refuse to launder bad numbers."""
 
+import contextlib
 import importlib.util
+import io
 import json
+import time
 import tempfile
 import unittest
 from pathlib import Path
@@ -161,3 +164,61 @@ class PipelineDriverTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReleaseAuditTests(unittest.TestCase):
+    """The audit must survive writing its own report, even when checks failed."""
+
+    def setUp(self):
+        self.audit_module = load("release_audit")
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+
+    def test_percentiles(self):
+        values = [float(n) for n in range(1, 101)]
+        self.assertAlmostEqual(self.audit_module.percentile(values, .50), 50.5)
+        self.assertAlmostEqual(self.audit_module.percentile(values, 1.0), 100.0)
+        stats = self.audit_module.summarise(values)
+        self.assertEqual(stats["count"], 100)
+        self.assertEqual(stats["p100"], 100.0)
+
+    def test_guard_turns_an_exception_into_a_failed_check(self):
+        audit = self.audit_module.Audit()
+        with contextlib.redirect_stdout(io.StringIO()):
+            with audit.guard("area", "check"):
+                raise ValueError("boom")
+        self.assertEqual(audit.failed, 1)
+        self.assertEqual(audit.rows[0]["status"], "FAIL")
+        self.assertIn("boom", audit.rows[0]["detail"])
+
+    def test_report_is_written_even_with_failures(self):
+        audit = self.audit_module.Audit()
+        with contextlib.redirect_stdout(io.StringIO()):
+            audit.ok("a", "one", "fine")
+            audit.bad("b", "two", "broken")
+            audit.skip("c", "three", "not here")
+            out = Path(self.directory.name) / "report.md"
+            self.audit_module.write_report(audit, {
+                "latency_ms": {"total": {"p50": 1.0, "p95": 2.0, "p100": 3.0, "mean": 1.5, "count": 9}},
+                "retrieval_metrics": {"recall_at_1": 0.25, "mrr": 0.39},
+                "coverage": {"evaluation_queries": 93, "query_coverage_pct": 100.0,
+                             "positive_coverage_pct": 100.0},
+                "pdf": {"pages": 8, "chunks": 8, "seconds": 1.2,
+                        "citation": {"document": "GOA Task-2.pdf", "page": 7}},
+                "demo_questions": [{"question": "q", "expect": "evidence", "behaved": True,
+                                    "citations": 2, "best_score": 0.9}],
+                "hosted_llm_references": [],
+            }, out, time.perf_counter())
+        text = out.read_text()
+        self.assertIn("NOT READY", text)
+        self.assertIn("GOA Task-2.pdf", text)
+        self.assertIn("Page 7", text)
+        self.assertIn("| FAIL | b | two | broken |", text)
+
+    def test_report_says_release_ready_when_nothing_failed(self):
+        audit = self.audit_module.Audit()
+        with contextlib.redirect_stdout(io.StringIO()):
+            audit.ok("a", "one")
+            out = Path(self.directory.name) / "ok.md"
+            self.audit_module.write_report(audit, {"hosted_llm_references": []}, out, time.perf_counter())
+        self.assertIn("RELEASE READY", out.read_text())

@@ -148,13 +148,15 @@ def text_store(rows):
         for passage_id, text in rows.items():
             handle.write(json.dumps({"passage_id": passage_id, "text": text,
                                      "language": "hin_Deva"}, ensure_ascii=False) + "\n")
-    return PassageTextStore.build(path), directory
+    store = PassageTextStore.build(path)
+    return store, directory
 
 
 class PipelineTests(unittest.TestCase):
     def pipeline(self, hits, generator):
         store, directory = text_store(TEXTS)
         self.addCleanup(directory.cleanup)
+        self.addCleanup(store.close)
         return RagPipeline(embedder=StubEmbedder(), index=StubIndex(hits),
                            texts=store, generator=generator)
 
@@ -225,6 +227,7 @@ class TextStoreTests(unittest.TestCase):
     def test_round_trip_and_unknown_ids(self):
         store, directory = text_store(TEXTS)
         self.addCleanup(directory.cleanup)
+        self.addCleanup(store.close)
         self.assertEqual(store.texts(["p_b"]), {"p_b": TEXTS["p_b"]})
         self.assertEqual(store.texts(["p_missing"]), {})
         self.assertEqual(len(store), 3)
@@ -238,6 +241,7 @@ class IndexIntegrationTests(unittest.TestCase):
         from src.retrieval.index import FaissHNSWIndex
         store, directory = text_store(TEXTS)
         self.addCleanup(directory.cleanup)
+        self.addCleanup(store.close)
         index = FaissHNSWIndex(4, m=4)
         vectors = np.asarray([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]], dtype=np.float32)
         index.add(["p_a", "p_b", "p_c"], vectors)

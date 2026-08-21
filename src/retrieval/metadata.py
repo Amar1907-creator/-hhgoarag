@@ -80,7 +80,20 @@ class OffsetMetadataStore:
         return rows
 
     def close(self) -> None:
-        self.handle.close()
+        if not self.handle.closed:
+            self.handle.close()
+
+    def __enter__(self) -> "OffsetMetadataStore":
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def __len__(self) -> int:
         return len(self.offsets)

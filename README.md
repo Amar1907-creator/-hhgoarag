@@ -279,7 +279,24 @@ data/documents/    uploaded PDFs, their chunks and indexes (git-ignored)
 - Scanned PDFs are refused rather than OCR'd. Adding OCR would mean a Tesseract
   dependency, and refusing clearly beats guessing badly.
 
+## Release audit
+
+```bash
+python3 scripts/release_audit.py
+```
+
+Runs the whole test suite, verifies corpus/index alignment, loads the real
+service, measures startup and per-stage latency, exercises the corpus flow, the
+abstention path, PDF ingestion with page citation, restart persistence and
+determinism, checks that no hosted-LLM reference exists in shipped code, and
+verifies each demonstration question behaves as labelled. It writes
+`docs/RELEASE_AUDIT.md` with every measured number and exits non-zero if any
+check fails. Checks it cannot run are recorded as SKIP with the reason, never
+as PASS.
+
 ## Judge demonstration
+
+The full five-minute sequence is in [`docs/JUDGE_CHECKLIST.md`](docs/JUDGE_CHECKLIST.md).
 
 ```bash
 ./run.sh

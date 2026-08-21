@@ -18,6 +18,9 @@
          --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35); }
 }
 *{box-sizing:border-box}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
 body{margin:0;background:var(--bg);color:var(--ink);
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Nirmala UI",sans-serif;
   line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -110,8 +113,11 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
 .doc-err{font-size:12.5px;color:var(--bad);margin-top:9px;line-height:1.5}
 .x{background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:16px;padding:2px 6px;line-height:1}
 .x:hover{color:var(--bad)}
-.mic{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);
-  width:40px;height:40px;border-radius:9px;padding:0;display:grid;place-items:center;font-size:16px}
+.mic{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:10px 15px;display:inline-flex;align-items:center;gap:8px;
+  font-size:14px;font-weight:600}
+.mic:hover{border-color:var(--accent)}
+.mic .ic{font-size:16px;line-height:1}
 .mic.live{background:var(--bad);border-color:var(--bad);color:#fff;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.6}}
 .page-badge{background:var(--accent);color:var(--accent-ink);border-radius:5px;padding:2px 7px;
@@ -138,17 +144,21 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
 
   <div class="card ask">
     <div class="lbl" style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);margin-bottom:8px">Knowledge source</div>
-    <div class="seg" id="seg"></div>
-    <div class="drop" id="drop">
+    <div class="seg" id="seg" role="group" aria-label="Knowledge source"></div>
+    <div class="drop" id="drop" role="button" tabindex="0" aria-label="Upload a PDF">
       <b>Upload a PDF</b> — drag it here or click to choose. Processed on this machine.
       <input type="file" id="file" accept="application/pdf,.pdf" hidden>
     </div>
     <div id="docs"></div>
     <div style="height:16px"></div>
-    <textarea id="q" placeholder="अपना प्रश्न हिंदी में लिखें…" spellcheck="false"></textarea>
+    <label for="q" class="sr">अपना प्रश्न हिंदी में लिखें</label>
+    <textarea id="q" placeholder="अपना प्रश्न हिंदी में लिखें…" spellcheck="false"
+              lang="hi" aria-describedby="hint"></textarea>
     <div class="row">
       <button class="primary" id="ask">पूछें &nbsp;·&nbsp; Ask</button>
-      <button class="mic" id="mic" title="Ask by voice (Hindi)">&#127908;</button>
+      <button class="mic" id="mic" type="button" aria-label="Ask by voice in Hindi"
+              title="Ask by voice in Hindi (hi-IN)"><span class="ic" aria-hidden="true">&#127908;</span>
+        <span id="micLabel">बोलें · Voice</span></button>
       <button class="ghost" id="clear">Clear</button>
       <span class="hint" id="hint">⌘/Ctrl + Enter</span>
     </div>
@@ -158,7 +168,7 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
     </div>
   </div>
 
-  <div id="out"></div>
+  <div id="out" role="region" aria-live="polite" aria-label="Answer"></div>
 
   <footer>
     Retrieval decides what is true; the language model only phrases it.<br>
@@ -248,6 +258,17 @@ function pollDoc(id){
   setTimeout(tick, 500);
 }
 
+function sourceHint(){
+  const active = SOURCES.find(s => s.key === SOURCE);
+  const lbl = document.querySelector(".samples .lbl");
+  if(!lbl) return;
+  lbl.textContent = active && active.kind === "document"
+    ? `Asking “${active.label}” — try a question about its contents, or use the microphone`
+    : "Demonstration questions";
+  document.querySelectorAll(".chip").forEach(c =>
+    c.style.display = (active && active.kind === "document") ? "none" : "");
+}
+
 function renderSources(){
   $("seg").innerHTML = SOURCES.map(s => `
     <button class="${s.key === SOURCE ? "on" : ""}" data-src="${esc(s.key)}">
@@ -257,6 +278,7 @@ function renderSources(){
   document.querySelectorAll("[data-src]").forEach(b => b.onclick = () => {
     SOURCE = b.dataset.src; renderSources();
   });
+  sourceHint();
 }
 
 async function refreshSources(){
@@ -420,11 +442,13 @@ if(Recognition){
   recogniser.interimResults = true;
   recogniser.continuous = false;
   let finalText = "";
-  recogniser.onstart = () => { finalText = ""; $("mic").classList.add("live"); $("hint").textContent = "सुन रहे हैं… speak now"; };
+  recogniser.onstart = () => { finalText = ""; $("mic").classList.add("live");
+    $("micLabel").textContent = "सुन रहे हैं…"; $("hint").textContent = "speak your question in Hindi"; };
   recogniser.onerror = (e) => { $("hint").textContent = e.error === "not-allowed"
       ? "microphone permission denied" : "voice input error: " + e.error; };
   recogniser.onend = () => {
     $("mic").classList.remove("live");
+    $("micLabel").textContent = "बोलें · Voice";
     $("hint").textContent = "⌘/Ctrl + Enter";
     if(finalText.trim()){ $("q").value = finalText.trim(); ask(); }
   };
@@ -442,10 +466,14 @@ if(Recognition){
   };
 }else{
   $("mic").onclick = () => { $("hint").textContent = "voice input needs Chrome, Edge or Safari"; };
-  $("mic").style.opacity = ".5";
+  $("mic").style.opacity = ".55";
+  $("mic").title = "Voice input needs Chrome, Edge or Safari";
 }
 
 $("drop").onclick = () => $("file").click();
+$("drop").addEventListener("keydown", e => {
+  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); $("file").click(); }
+});
 $("file").onchange = (e) => uploadFile(e.target.files[0]);
 ["dragenter","dragover"].forEach(evt => $("drop").addEventListener(evt, e => {
   e.preventDefault(); $("drop").classList.add("over"); }));

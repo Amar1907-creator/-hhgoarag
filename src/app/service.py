@@ -106,6 +106,13 @@ class Service:
     # -- loading ---------------------------------------------------------
     def load(self) -> ServiceStatus:
         started = time.perf_counter()
+        if self.pipeline is not None:
+            # Reloading must not strand the previous corpus file handle.
+            try:
+                self.pipeline.close()
+            except Exception:
+                pass
+            self.pipeline = None
         prefix = discover_prefix(self.requested_prefix)
         if prefix is None:
             self.status.error = (

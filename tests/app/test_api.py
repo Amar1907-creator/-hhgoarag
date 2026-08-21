@@ -42,8 +42,9 @@ def build_service(hits=HITS, ready=True):
         for passage_id, text in TEXTS.items():
             handle.write(json.dumps({"passage_id": passage_id, "text": text,
                                      "language": "hin_Deva"}, ensure_ascii=False) + "\n")
+    store = PassageTextStore.build(path)
     pipeline = RagPipeline(embedder=StubEmbedder(), index=StubIndex(hits),
-                           texts=PassageTextStore.build(path), generator=ExtractiveGenerator())
+                           texts=store, generator=ExtractiveGenerator())
     status = ServiceStatus(ready=ready, prefix="test", corpus_passages=3, index_vectors=3,
                            embedding_model="stub", embedding_dimension=4, device="cpu",
                            generator="extractive", generator_available=True, load_seconds=0.1,
