@@ -19,9 +19,12 @@ from src.documents.ingest import ingest_pdf
 from src.documents.store import STATUS_FAILED, STATUS_READY, DocumentRecord, DocumentStore
 from src.rag.generator import build_generator
 from src.rag.pipeline import RagPipeline
-from src.rag.sources import DocumentSource
+from src.languages import DEFAULT_CODE, Language, find as find_language, from_prefix
+from src.rag.sources import CorpusSource, DocumentSource
+from src.rag.store import PassageTextStore
 
-DEFAULT_PREFIX = os.environ.get("HHGOARAG_PREFIX", "hi-train-5k")
+DEFAULT_PREFIX = os.environ.get("HHGOARAG_PREFIX", "")
+DEFAULT_LANGUAGE = os.environ.get("HHGOARAG_LANGUAGE", DEFAULT_CODE)
 DEFAULT_EMBEDDING_MODEL = os.environ.get("HHGOARAG_EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
 PROCESSED = Path("data/processed")
 MANIFESTS = Path("data/manifests")
@@ -45,16 +48,37 @@ def resolve_device(requested: str | None = None) -> str:
     return "cpu"
 
 
-def discover_prefix(preferred: str = DEFAULT_PREFIX) -> str | None:
-    """Use the requested corpus if built, else the largest one that is."""
-    if (PROCESSED / f"{preferred}-corpus.jsonl").exists():
-        return preferred
-    candidates = []
+def built_corpora() -> dict[str, str]:
+    """Language code -> artifact prefix, for every language with a usable index.
+
+    Scans rather than being configured: a language becomes available the moment
+    its corpus and index exist, with no code or settings change.
+    """
+    found: dict[str, tuple[int, str]] = {}
     for path in sorted(PROCESSED.glob("*-corpus.jsonl")):
         prefix = path.name[: -len("-corpus.jsonl")]
-        if (PROCESSED / f"{prefix}-index" / "index.faiss").exists():
-            candidates.append((path.stat().st_size, prefix))
-    return max(candidates)[1] if candidates else None
+        if not (PROCESSED / f"{prefix}-index" / "index.faiss").exists():
+            continue
+        language = from_prefix(prefix)
+        if language is None:
+            continue
+        size = path.stat().st_size
+        # Largest corpus wins when a language has several builds.
+        if language.code not in found or size > found[language.code][0]:
+            found[language.code] = (size, prefix)
+    return {code: prefix for code, (_, prefix) in sorted(found.items())}
+
+
+def discover_prefix(preferred: str = DEFAULT_PREFIX) -> str | None:
+    """Resolve an explicit prefix, else the default language, else the largest build."""
+    if preferred and (PROCESSED / f"{preferred}-corpus.jsonl").exists():
+        return preferred
+    corpora = built_corpora()
+    if not corpora:
+        return None
+    if DEFAULT_LANGUAGE in corpora:
+        return corpora[DEFAULT_LANGUAGE]
+    return max(corpora.values(), key=lambda p: (PROCESSED / f"{p}-corpus.jsonl").stat().st_size)
 
 
 @dataclass
@@ -74,6 +98,8 @@ class ServiceStatus:
     started_at: float = field(default_factory=time.time)
     error: str = ""
     metrics: dict = field(default_factory=dict)
+    language: str = ""
+    languages: list = field(default_factory=list)
 
     def to_dict(self) -> dict:
         payload = self.__dict__.copy()
@@ -102,6 +128,12 @@ class Service:
         # is better than thrashing the machine the retrieval index is serving from.
         self._ingest_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ingest")
         self._pending: dict[str, DocumentRecord] = {}
+        # Corpus indexes are loaded on first use and kept for the process
+        # lifetime. Eagerly loading every built language would cost roughly
+        # 90 MB of RAM each for no benefit if only one is asked about.
+        self._corpus_cache: dict[str, CorpusSource] = {}
+        self._stores: list[PassageTextStore] = []
+        self.language = DEFAULT_LANGUAGE
 
     # -- loading ---------------------------------------------------------
     def load(self) -> ServiceStatus:
@@ -122,6 +154,7 @@ class Service:
 
         corpus = PROCESSED / f"{prefix}-corpus.jsonl"
         index_dir = PROCESSED / f"{prefix}-index"
+        language = from_prefix(prefix)
         device = resolve_device(self.requested_device)
         generator = build_generator(self.generator_kind)
 
@@ -149,13 +182,93 @@ class Service:
             requires_api_key=False,
             load_seconds=round(time.perf_counter() - started, 2),
             metrics=self.read_metrics(prefix),
+            language=language.code if language else "",
+            languages=self.language_roster(),
         )
+        self.language = language.code if language else DEFAULT_LANGUAGE
+        if language:
+            # The corpus loaded above IS this language's source; register it so
+            # the first query does not load the same index a second time.
+            source = CorpusSource(self.pipeline.index, self.pipeline.texts,
+                                  key=f"corpus:{language.code}", label=language.label)
+            self._corpus_cache[language.code] = source
+            self.pipeline.add_source(source)
+            self.pipeline.default_source = source.key
         self.restore_documents()
         if self.status.index_vectors != corpus_passages:
             self.status.ready = False
             self.status.error = (f"index/corpus mismatch: {self.status.index_vectors} vectors "
                                  f"vs {corpus_passages} passages")
         return self.status
+
+    # -- languages ---------------------------------------------------------
+    def language_roster(self) -> list[dict]:
+        """Every known language, marked with whether it is actually usable here."""
+        from src.languages import LANGUAGES
+        corpora = built_corpora()
+        roster = []
+        for language in LANGUAGES:
+            entry = language.to_dict()
+            prefix = corpora.get(language.code)
+            entry["available"] = prefix is not None
+            entry["prefix"] = prefix or ""
+            entry["loaded"] = language.code in self._corpus_cache
+            if prefix:
+                entry["metrics"] = self.read_metrics(prefix)
+            roster.append(entry)
+        return roster
+
+    def available_languages(self) -> list[str]:
+        return list(built_corpora())
+
+    def corpus_source(self, code: str) -> CorpusSource:
+        """Return this language's corpus source, loading it once if needed."""
+        language = find_language(code)
+        if language is None:
+            raise KeyError(f"unknown language {code!r}")
+        if language.code in self._corpus_cache:
+            return self._corpus_cache[language.code]
+        prefix = built_corpora().get(language.code)
+        if prefix is None:
+            raise KeyError(f"{language.english} has no built corpus. "
+                           f"Build one with: python3 scripts/run_pipeline.py --language {language.code}")
+        from src.retrieval.index import FaissHNSWIndex
+        index = FaissHNSWIndex.load(PROCESSED / f"{prefix}-index")
+        if index.dimension != self.pipeline.embedder.dimension:
+            raise RuntimeError(f"{language.english} index has dimension {index.dimension}, "
+                               f"but the embedding model produces {self.pipeline.embedder.dimension}")
+        store = PassageTextStore.build(PROCESSED / f"{prefix}-corpus.jsonl")
+        self._stores.append(store)
+        source = CorpusSource(index, store, key=f"corpus:{language.code}", label=language.label)
+        self._corpus_cache[language.code] = source
+        self.pipeline.add_source(source)
+        return source
+
+    def resolve_source_key(self, source: str | None, language: str | None) -> str | None:
+        """Decide which knowledge source answers this question.
+
+        Order matters: an explicit document wins, then an already-registered
+        source for the requested language, then a lazy load from disk, then
+        whatever the pipeline was constructed with. The last step is what lets a
+        pipeline be injected with sources that never existed on disk.
+        """
+        if source and source.startswith("document:"):
+            return source
+        wanted = language or self.language
+        if source and source.startswith("corpus:"):
+            wanted = source.split(":", 1)[1]
+            source = None
+        key = f"corpus:{wanted}"
+        if self.pipeline and key in self.pipeline.sources:
+            return key
+        try:
+            return self.corpus_source(wanted).key
+        except (KeyError, RuntimeError):
+            if source and self.pipeline and source in self.pipeline.sources:
+                return source
+            if self.pipeline and self.pipeline.default_source in self.pipeline.sources:
+                return self.pipeline.default_source
+            raise
 
     # -- uploaded documents ----------------------------------------------
     def restore_documents(self) -> int:
@@ -257,9 +370,11 @@ class Service:
         }
 
     # -- serving ---------------------------------------------------------
-    def answer(self, question: str, top_k: int | None = None, source: str | None = None) -> dict:
+    def answer(self, question: str, top_k: int | None = None, source: str | None = None,
+               language: str | None = None) -> dict:
         if self.pipeline is None:
             raise RuntimeError(self.status.error or "service is not loaded")
+        source = self.resolve_source_key(source, language)
         with self._lock:
             previous = self.pipeline.top_k
             if top_k:
@@ -276,6 +391,13 @@ class Service:
 
     def close(self) -> None:
         self._ingest_pool.shutdown(wait=False)
+        for store in self._stores:
+            try:
+                store.close()
+            except Exception:
+                pass
+        self._stores.clear()
+        self._corpus_cache.clear()
         if self.pipeline is not None:
             self.pipeline.close()
 

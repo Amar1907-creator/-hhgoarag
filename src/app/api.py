@@ -38,7 +38,9 @@ class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=1000)
     top_k: int | None = Field(default=None, ge=1, le=50)
     source: str | None = Field(default=None,
-                               description="knowledge source key, e.g. 'corpus' or 'document:doc_abc123'")
+                               description="knowledge source key, e.g. 'corpus:hi' or 'document:doc_abc123'")
+    language: str | None = Field(default=None, max_length=8,
+                                 description="language code, e.g. 'hi' or 'ta'; ignored for documents")
 
 
 def create_app(service: Service | None = None, *, load: bool = True) -> FastAPI:
@@ -65,7 +67,9 @@ def create_app(service: Service | None = None, *, load: bool = True) -> FastAPI:
     @application.get("/api/stats")
     def stats() -> dict:
         status = state.status
-        return {"prefix": status.prefix, "corpus_passages": status.corpus_passages,
+        return {"prefix": status.prefix, "language": status.language,
+                "languages_available": [e["code"] for e in status.languages if e.get("available")],
+                "corpus_passages": status.corpus_passages,
                 "index_vectors": status.index_vectors,
                 "aligned": status.corpus_passages == status.index_vectors and status.ready,
                 "embedding_model": status.embedding_model,
@@ -92,13 +96,20 @@ def create_app(service: Service | None = None, *, load: bool = True) -> FastAPI:
             raise HTTPException(status_code=422, detail="question must not be empty")
         started = time.perf_counter()
         try:
-            payload = state.answer(question, top_k=request.top_k, source=request.source)
+            payload = state.answer(question, top_k=request.top_k, source=request.source,
+                                   language=request.language)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc).strip("\"'")) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
         payload["served_in_ms"] = round((time.perf_counter() - started) * 1e3, 2)
         return payload
+
+    @application.get("/api/languages")
+    def languages() -> dict:
+        roster = state.language_roster()
+        return {"languages": roster, "current": state.language,
+                "available": [entry["code"] for entry in roster if entry["available"]]}
 
     @application.get("/api/sources")
     def sources() -> dict:

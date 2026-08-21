@@ -50,7 +50,8 @@ def count_lines(path: Path) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="hi")
+    parser.add_argument("--language", "--config", dest="config", default="hi",
+                        help="language code, e.g. hi, ta, bn (see scripts/language_matrix.py)")
     parser.add_argument("--revision", default=REVISION)
     parser.add_argument("--limit", type=int, default=5000, help="train records to ingest")
     parser.add_argument("--prefix", default=None, help="artifact prefix; default hi-train-{limit//1000}k")
@@ -63,6 +64,17 @@ def main() -> None:
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("--force", action="store_true", help="re-run stages whose artifacts exist")
     args = parser.parse_args()
+
+    from src.languages import get as get_language
+    try:
+        language = get_language(args.config)
+    except KeyError as exc:
+        raise SystemExit(str(exc))
+    if not language.has_train:
+        raise SystemExit(f"{language.english} has validation data but no train file in this "
+                         f"revision, so no corpus can be built for it. {language.note}")
+    args.config = language.code
+    print(f"language: {language.native} ({language.english}), {language.script} script")
 
     thousands = args.limit // 1000
     prefix = args.prefix or f"{args.config}-train-{thousands}k" if thousands else f"{args.config}-train-{args.limit}"

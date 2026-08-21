@@ -92,6 +92,14 @@ summary::marker{color:var(--ink-3)}
 .err b{color:var(--bad)}
 footer{margin-top:34px;color:var(--ink-3);font-size:12.5px;text-align:center;line-height:1.9}
 footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)}
+.langrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;
+  padding-bottom:14px;border-bottom:1px solid var(--line)}
+#lang{font:inherit;font-size:15px;padding:8px 12px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--ink);min-width:190px}
+#lang:focus{border-color:var(--focus)}
+#lang option:disabled{color:var(--ink-3)}
+.langnote{font-size:12px;color:var(--ink-3)}
 .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .seg button{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);
   padding:8px 14px;border-radius:9px;font-size:13.5px;font-weight:500;display:flex;gap:8px;align-items:center}
@@ -143,7 +151,12 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
   </header>
 
   <div class="card ask">
-    <div class="lbl" style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);margin-bottom:8px">Knowledge source</div>
+    <div class="langrow">
+      <label class="lbl" for="lang" id="langLabel">भाषा · Language</label>
+      <select id="lang" aria-label="Question language"></select>
+      <span class="langnote" id="langNote"></span>
+    </div>
+    <div class="lbl" style="margin-bottom:8px">Knowledge source</div>
     <div class="seg" id="seg" role="group" aria-label="Knowledge source"></div>
     <div class="drop" id="drop" role="button" tabindex="0" aria-label="Upload a PDF">
       <b>Upload a PDF</b> — drag it here or click to choose. Processed on this machine.
@@ -191,7 +204,9 @@ const REASONS = {
   empty_question: "Please enter a question"
 };
 
-let SOURCE = "corpus";
+let LANG = null;
+let LANGS = [];
+let SOURCE = null;
 let SOURCES = [];
 const POLLING = new Set();
 
@@ -225,7 +240,7 @@ function renderDocs(docs){
     </div>`).join("");
   document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
     await fetch("/api/documents/" + b.dataset.del, {method:"DELETE"});
-    if(SOURCE === "document:" + b.dataset.del) SOURCE = "corpus";
+    if(SOURCE === "document:" + b.dataset.del) SOURCE = null;
     refreshDocs(); refreshSources();
   });
 }
@@ -259,7 +274,7 @@ function pollDoc(id){
 }
 
 function sourceHint(){
-  const active = SOURCES.find(s => s.key === SOURCE);
+  const active = SOURCE ? SOURCES.find(s => s.key === SOURCE) : null;
   const lbl = document.querySelector(".samples .lbl");
   if(!lbl) return;
   lbl.textContent = active && active.kind === "document"
@@ -270,13 +285,18 @@ function sourceHint(){
 }
 
 function renderSources(){
-  $("seg").innerHTML = SOURCES.map(s => `
-    <button class="${s.key === SOURCE ? "on" : ""}" data-src="${esc(s.key)}">
+  const docs = SOURCES.filter(s => s.kind === "document");
+  const l = currentLang();
+  const corpusLabel = l ? `${l.native} corpus` : "Corpus";
+  const entries = [{key:null, kind:"corpus", label:corpusLabel,
+                    size:(SOURCES.find(s => s.key === "corpus:" + LANG) || {}).size || 0}, ...docs];
+  $("seg").innerHTML = entries.map(s => `
+    <button class="${(s.key || null) === SOURCE ? "on" : ""}" data-src="${esc(s.key || "")}">
       ${s.kind === "document" ? "&#128196;" : "&#128218;"} ${esc(s.label)}
-      <span class="n">${s.size ? s.size.toLocaleString() : 0}</span>
+      ${s.size ? `<span class="n">${s.size.toLocaleString()}</span>` : ""}
     </button>`).join("");
   document.querySelectorAll("[data-src]").forEach(b => b.onclick = () => {
-    SOURCE = b.dataset.src; renderSources();
+    SOURCE = b.dataset.src || null; renderSources();
   });
   sourceHint();
 }
@@ -284,7 +304,7 @@ function renderSources(){
 async function refreshSources(){
   try{
     SOURCES = (await (await fetch("/api/sources")).json()).sources;
-    if(!SOURCES.some(s => s.key === SOURCE)) SOURCE = (SOURCES[0] || {key:"corpus"}).key;
+      if(SOURCE && !SOURCES.some(s => s.key === SOURCE)) SOURCE = null;
     renderSources();
   }catch(e){}
 }
@@ -308,6 +328,45 @@ async function uploadFile(file){
   }catch(e){ showError("Upload failed", String(e)); }
 }
 
+function currentLang(){ return LANGS.find(l => l.code === LANG) || null; }
+
+function applyLanguage(){
+  const l = currentLang();
+  if(!l) return;
+  const q = $("q");
+  q.placeholder = l.placeholder;
+  q.lang = l.code;
+  q.dir = l.direction;
+  $("langLabel").textContent = `${l.native} · Language`;
+  const speech = l.speech_locale
+    ? (l.speech_status === "verified" ? `voice: ${l.speech_locale}` : `voice: ${l.speech_locale} (untested)`)
+    : "no voice engine for this language";
+  $("langNote").textContent = `${l.script} script · ${speech}`;
+  if(recogniser && l.speech_locale) recogniser.lang = l.speech_locale;
+  const usable = !!l.speech_locale;
+  $("mic").disabled = !usable;
+  $("mic").style.opacity = usable ? "1" : ".45";
+  $("mic").title = usable ? `Ask by voice (${l.speech_locale})`
+                          : `No browser speech engine is known for ${l.english}`;
+  sourceHint();
+}
+
+async function refreshLanguages(){
+  try{
+    const data = await (await fetch("/api/languages")).json();
+    LANGS = data.languages;
+    LANG = LANG || data.current || (data.available[0] || null);
+    const opts = LANGS.map(l => {
+      const built = l.available;
+      const suffix = built ? "" : (l.has_train ? " — not built" : " — no train data");
+      return `<option value="${esc(l.code)}" ${built ? "" : "disabled"} ${l.code === LANG ? "selected" : ""}
+              >${esc(l.native)} · ${esc(l.english)}${suffix}</option>`;
+    }).join("");
+    $("lang").innerHTML = opts;
+    applyLanguage();
+  }catch(e){}
+}
+
 async function boot(){
   try{
     const r = await fetch("/health");
@@ -324,6 +383,7 @@ async function boot(){
   }catch(e){
     $("dot").className = "dot bad"; $("statustext").textContent = "backend unreachable";
   }
+  await refreshLanguages();
   await refreshSources();
   await refreshDocs();
   try{
@@ -422,7 +482,7 @@ async function ask(){
   $("ask").disabled = true; loading();
   try{
     const r = await fetch("/api/query", {method:"POST", headers:{"Content-Type":"application/json"},
-                                          body: JSON.stringify({question, source: SOURCE})});
+                                          body: JSON.stringify({question, source: SOURCE, language: LANG})});
     if(!r.ok){
       const e = await r.json().catch(()=>({detail:r.statusText}));
       showError(`Request failed (${r.status})`, e.detail || "Unknown error");
@@ -438,14 +498,23 @@ const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recogniser = null;
 if(Recognition){
   recogniser = new Recognition();
-  recogniser.lang = "hi-IN";          // Hindi dictation
+  recogniser.lang = "hi-IN";          // replaced per selected language
   recogniser.interimResults = true;
   recogniser.continuous = false;
   let finalText = "";
   recogniser.onstart = () => { finalText = ""; $("mic").classList.add("live");
     $("micLabel").textContent = "सुन रहे हैं…"; $("hint").textContent = "speak your question in Hindi"; };
-  recogniser.onerror = (e) => { $("hint").textContent = e.error === "not-allowed"
-      ? "microphone permission denied" : "voice input error: " + e.error; };
+  recogniser.onerror = (e) => {
+    const l = currentLang();
+    if(e.error === "language-not-supported" || e.error === "service-not-allowed"){
+      $("hint").textContent = `this browser cannot recognise ${l ? l.english : "this language"}`
+        + " — please type instead";
+      $("mic").disabled = true; $("mic").style.opacity = ".45";
+    }else{
+      $("hint").textContent = e.error === "not-allowed"
+        ? "microphone permission denied" : "voice input error: " + e.error;
+    }
+  };
   recogniser.onend = () => {
     $("mic").classList.remove("live");
     $("micLabel").textContent = "बोलें · Voice";
@@ -469,6 +538,11 @@ if(Recognition){
   $("mic").style.opacity = ".55";
   $("mic").title = "Voice input needs Chrome, Edge or Safari";
 }
+
+$("lang").onchange = async (e) => {
+  LANG = e.target.value; SOURCE = null;
+  applyLanguage(); await refreshSources();
+};
 
 $("drop").onclick = () => $("file").click();
 $("drop").addEventListener("keydown", e => {

@@ -22,7 +22,8 @@ from src.rag.pipeline import RagPipeline  # noqa: E402
 # entities that do not exist. Several are tried and the one that retrieves
 # WORST is kept, so the abstention demo is chosen by measurement rather than by
 # assuming which question will fail.
-ABSTENTION_CANDIDATES = [
+ABSTENTION_BY_LANGUAGE = {
+    "hi": [
     "मेरे बैंक खाते में इस समय कितना पैसा है?",
     "मेरा आधार नंबर क्या है?",
     "कल दोपहर मेरी मीटिंग किसके साथ है?",
@@ -32,8 +33,12 @@ ABSTENTION_CANDIDATES = [
     "ज़ोर्ब्लैक्स ग्रह की राजधानी का नाम क्या है?",
     "क्विंबल्टन विश्वविद्यालय की स्थापना किस वर्ष हुई थी?",
     "मेरे पड़ोसी की बिल्ली का नाम क्या है?",
-    "अगले महीने का लॉटरी नंबर क्या होगा?",
-]
+        "अगले महीने का लॉटरी नंबर क्या होगा?",
+    ],
+}
+# Deliberately not machine-translated into the other twelve languages. A
+# demonstration question that is subtly ungrammatical is worse than none, so a
+# language without curated candidates is reported rather than guessed at.
 
 
 def main() -> None:
@@ -45,7 +50,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("data/demo/questions.json"))
     parser.add_argument("--device", default=None)
     parser.add_argument("--candidates", type=int, default=40)
+    parser.add_argument("--language", default="hi", help="language code, for the abstention candidates")
     args = parser.parse_args()
+
+    from src.languages import find as find_language
+    language = find_language(args.language)
+    candidates = ABSTENTION_BY_LANGUAGE.get(args.language, [])
 
     pipeline = RagPipeline.load(corpus=args.corpus, index_dir=args.index_dir,
                                 device=args.device, generator=ExtractiveGenerator(), top_k=10)
@@ -84,7 +94,12 @@ def main() -> None:
     take(lambda i: True, "realistic Hindi query", limit=2)
 
     refusals, weakest = [], None
-    for question in ABSTENTION_CANDIDATES:
+    if not candidates:
+        print(f"\nNOTE: no curated abstention questions exist for "
+              f"{language.english if language else args.language}. The evidence questions above are "
+              f"verified; the abstention example must be written and checked by a speaker before it "
+              f"is demonstrated.", file=sys.stderr)
+    for question in candidates:
         result = pipeline.answer(question)
         score = round(result.retrieval[0]["score"], 4) if result.retrieval else 0.0
         if not result.grounded:
@@ -101,7 +116,7 @@ def main() -> None:
         # Nothing was refused at the current floor. Say so rather than shipping a
         # demo question that promises an abstention and then answers.
         score, question = weakest
-        print(f"\nWARNING: none of the {len(ABSTENTION_CANDIDATES)} unanswerable candidates was "
+        print(f"\nWARNING: none of the {len(candidates)} unanswerable candidates was "
               f"refused; the weakest still scored {score:.4f}, above the evidence floor.\n"
               f"         The abstention demo is only trustworthy if the floor is above that.\n"
               f"         Re-run with:  HHGOARAG_MIN_SCORE={min(0.95, score + 0.01):.2f} "
