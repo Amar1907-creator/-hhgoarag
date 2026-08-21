@@ -15,9 +15,11 @@ from pathlib import Path
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+
+from src.documents.ingest import MAX_UPLOAD_BYTES
 
 from src.app.service import Service
 
@@ -35,6 +37,8 @@ FALLBACK_DEMO = [
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=1000)
     top_k: int | None = Field(default=None, ge=1, le=50)
+    source: str | None = Field(default=None,
+                               description="knowledge source key, e.g. 'corpus' or 'document:doc_abc123'")
 
 
 def create_app(service: Service | None = None, *, load: bool = True) -> FastAPI:
@@ -88,11 +92,50 @@ def create_app(service: Service | None = None, *, load: bool = True) -> FastAPI:
             raise HTTPException(status_code=422, detail="question must not be empty")
         started = time.perf_counter()
         try:
-            payload = state.answer(question, top_k=request.top_k)
+            payload = state.answer(question, top_k=request.top_k, source=request.source)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc).strip("\"'")) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
         payload["served_in_ms"] = round((time.perf_counter() - started) * 1e3, 2)
         return payload
+
+    @application.get("/api/sources")
+    def sources() -> dict:
+        return {"sources": state.knowledge_sources(), "default": "corpus"}
+
+    @application.get("/api/documents")
+    def documents() -> dict:
+        return {"documents": [record.to_dict() for record in state.documents.list()]}
+
+    @application.get("/api/documents/{document_id}")
+    def document(document_id: str) -> dict:
+        record = state.documents.get(document_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="no such document")
+        return record.to_dict()
+
+    @application.delete("/api/documents/{document_id}")
+    def forget_document(document_id: str) -> dict:
+        if not state.delete_document(document_id):
+            raise HTTPException(status_code=404, detail="no such document")
+        return {"deleted": document_id}
+
+    @application.post("/api/documents", status_code=202)
+    async def upload(file: UploadFile = File(...)) -> dict:
+        if not state.status.ready:
+            raise HTTPException(status_code=503, detail=state.status.error or "service not ready")
+        name = (file.filename or "document.pdf").strip()
+        if not name.lower().endswith(".pdf"):
+            raise HTTPException(status_code=415, detail="only PDF files are supported")
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=422, detail="the uploaded file is empty")
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413,
+                                detail=f"file exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit")
+        # Ingestion continues in the background; the client polls the record.
+        return state.ingest_document(data, name).to_dict()
 
     @application.get("/")
     def index():

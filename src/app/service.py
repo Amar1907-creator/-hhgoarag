@@ -13,8 +13,13 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from concurrent.futures import ThreadPoolExecutor
+
+from src.documents.ingest import ingest_pdf
+from src.documents.store import STATUS_FAILED, STATUS_READY, DocumentRecord, DocumentStore
 from src.rag.generator import build_generator
 from src.rag.pipeline import RagPipeline
+from src.rag.sources import DocumentSource
 
 DEFAULT_PREFIX = os.environ.get("HHGOARAG_PREFIX", "hi-train-5k")
 DEFAULT_EMBEDDING_MODEL = os.environ.get("HHGOARAG_EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
@@ -82,7 +87,8 @@ class Service:
 
     def __init__(self, *, prefix: str | None = None, generator_kind: str = "auto",
                  device: str | None = None, top_k: int = 10, min_score: float | None = None,
-                 pipeline: RagPipeline | None = None, status: ServiceStatus | None = None) -> None:
+                 pipeline: RagPipeline | None = None, status: ServiceStatus | None = None,
+                 documents: DocumentStore | None = None) -> None:
         self.top_k = top_k
         self.min_score = min_score
         self.generator_kind = generator_kind
@@ -91,6 +97,11 @@ class Service:
         self.pipeline = pipeline
         self.status = status or ServiceStatus()
         self._lock = threading.Lock()
+        self.documents = documents or DocumentStore()
+        # One worker: ingestion is CPU-bound embedding work, and queueing uploads
+        # is better than thrashing the machine the retrieval index is serving from.
+        self._ingest_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ingest")
+        self._pending: dict[str, DocumentRecord] = {}
 
     # -- loading ---------------------------------------------------------
     def load(self) -> ServiceStatus:
@@ -132,11 +143,79 @@ class Service:
             load_seconds=round(time.perf_counter() - started, 2),
             metrics=self.read_metrics(prefix),
         )
+        self.restore_documents()
         if self.status.index_vectors != corpus_passages:
             self.status.ready = False
             self.status.error = (f"index/corpus mismatch: {self.status.index_vectors} vectors "
                                  f"vs {corpus_passages} passages")
         return self.status
+
+    # -- uploaded documents ----------------------------------------------
+    def restore_documents(self) -> int:
+        """Re-attach documents indexed in an earlier run, so uploads survive restarts."""
+        restored = 0
+        if self.pipeline is None:
+            return 0
+        for record in self.documents.list():
+            if record.status != STATUS_READY:
+                continue
+            try:
+                source = DocumentSource.load(self.documents, record.document_id, record.name)
+            except Exception:
+                continue
+            self.pipeline.add_source(source)
+            restored += 1
+        return restored
+
+    def ingest_document(self, data: bytes, name: str) -> DocumentRecord:
+        """Start ingestion in the background and return the initial record."""
+        if self.pipeline is None:
+            raise RuntimeError(self.status.error or "service is not loaded")
+        from src.documents.extract import content_id
+        document_id = content_id(data)
+        existing = self.documents.get(document_id)
+        if existing and existing.status == STATUS_READY:
+            self.attach_document(document_id)
+            return existing
+
+        record = DocumentRecord(document_id=document_id, name=name, bytes=len(data))
+        self.documents.save_record(record)
+        self._pending[document_id] = record
+        self._ingest_pool.submit(self._run_ingest, data, name, document_id)
+        return record
+
+    def _run_ingest(self, data: bytes, name: str, document_id: str) -> None:
+        try:
+            record = ingest_pdf(data, name, embedder=self.pipeline.embedder, store=self.documents)
+            if record.status == STATUS_READY:
+                self.attach_document(document_id)
+        except Exception as exc:  # a bad upload must never take the server down
+            record = self.documents.get(document_id) or DocumentRecord(document_id=document_id, name=name)
+            record.status, record.reason = STATUS_FAILED, "ingest_error"
+            record.message = f"{type(exc).__name__}: {exc}"
+            self.documents.save_record(record)
+        finally:
+            self._pending.pop(document_id, None)
+
+    def attach_document(self, document_id: str) -> bool:
+        record = self.documents.get(document_id)
+        if not record or record.status != STATUS_READY or self.pipeline is None:
+            return False
+        try:
+            self.pipeline.add_source(DocumentSource.load(self.documents, document_id, record.name))
+        except Exception:
+            return False
+        return True
+
+    def delete_document(self, document_id: str) -> bool:
+        if self.pipeline is not None:
+            self.pipeline.remove_source(f"document:{document_id}")
+        return self.documents.delete(document_id)
+
+    def knowledge_sources(self) -> list[dict]:
+        if self.pipeline is None:
+            return []
+        return self.pipeline.describe_sources()
 
     @staticmethod
     def read_metrics(prefix: str) -> dict:
@@ -171,7 +250,7 @@ class Service:
         }
 
     # -- serving ---------------------------------------------------------
-    def answer(self, question: str, top_k: int | None = None) -> dict:
+    def answer(self, question: str, top_k: int | None = None, source: str | None = None) -> dict:
         if self.pipeline is None:
             raise RuntimeError(self.status.error or "service is not loaded")
         with self._lock:
@@ -179,7 +258,7 @@ class Service:
             if top_k:
                 self.pipeline.top_k = max(1, min(int(top_k), 50))
             try:
-                result = self.pipeline.answer(question)
+                result = self.pipeline.answer(question, source=source)
             finally:
                 self.pipeline.top_k = previous
         payload = result.to_dict()
@@ -189,6 +268,7 @@ class Service:
         return payload
 
     def close(self) -> None:
+        self._ingest_pool.shutdown(wait=False)
         if self.pipeline is not None:
             self.pipeline.close()
 

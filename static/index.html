@@ -89,6 +89,37 @@ summary::marker{color:var(--ink-3)}
 .err b{color:var(--bad)}
 footer{margin-top:34px;color:var(--ink-3);font-size:12.5px;text-align:center;line-height:1.9}
 footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.seg button{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);
+  padding:8px 14px;border-radius:9px;font-size:13.5px;font-weight:500;display:flex;gap:8px;align-items:center}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.seg .n{font-size:11px;opacity:.75}
+.drop{border:1.5px dashed var(--line);border-radius:11px;padding:16px;text-align:center;
+  color:var(--ink-3);font-size:13.5px;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--ink-2);background:var(--panel-2)}
+.doc{border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-top:10px;background:var(--panel-2)}
+.doc-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.doc-name{font-weight:600;font-size:14.5px;flex:1;min-width:140px;word-break:break-all}
+.doc-meta{font-size:12px;color:var(--ink-3);margin-top:5px;font-variant-numeric:tabular-nums}
+.steps{display:flex;gap:4px;margin-top:10px;flex-wrap:wrap}
+.step{font-size:10.5px;padding:3px 8px;border-radius:5px;background:var(--panel);
+  border:1px solid var(--line);color:var(--ink-3);text-transform:capitalize}
+.step.done{color:var(--good);border-color:color-mix(in oklab,var(--good) 35%,var(--line))}
+.step.now{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.step.fail{color:var(--bad);border-color:color-mix(in oklab,var(--bad) 45%,var(--line))}
+.doc-err{font-size:12.5px;color:var(--bad);margin-top:9px;line-height:1.5}
+.x{background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:16px;padding:2px 6px;line-height:1}
+.x:hover{color:var(--bad)}
+.mic{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);
+  width:40px;height:40px;border-radius:9px;padding:0;display:grid;place-items:center;font-size:16px}
+.mic.live{background:var(--bad);border-color:var(--bad);color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.6}}
+.page-badge{background:var(--accent);color:var(--accent-ink);border-radius:5px;padding:2px 7px;
+  font-size:11px;font-weight:700;letter-spacing:.2px}
+.srcs{margin-top:4px}
+.src{display:flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid var(--line);
+  border-radius:9px;background:var(--panel-2);font-size:13.5px;margin-bottom:7px}
+.src .doc-i{font-size:15px}
 @media(max-width:600px){.wrap{padding:20px 14px 60px}.atext{font-size:17.5px}h1{font-size:19px}}
 </style>
 </head>
@@ -106,9 +137,18 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
   </header>
 
   <div class="card ask">
+    <div class="lbl" style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);margin-bottom:8px">Knowledge source</div>
+    <div class="seg" id="seg"></div>
+    <div class="drop" id="drop">
+      <b>Upload a PDF</b> — drag it here or click to choose. Processed on this machine.
+      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+    </div>
+    <div id="docs"></div>
+    <div style="height:16px"></div>
     <textarea id="q" placeholder="अपना प्रश्न हिंदी में लिखें…" spellcheck="false"></textarea>
     <div class="row">
       <button class="primary" id="ask">पूछें &nbsp;·&nbsp; Ask</button>
+      <button class="mic" id="mic" title="Ask by voice (Hindi)">&#127908;</button>
       <button class="ghost" id="clear">Clear</button>
       <span class="hint" id="hint">⌘/Ctrl + Enter</span>
     </div>
@@ -141,6 +181,111 @@ const REASONS = {
   empty_question: "Please enter a question"
 };
 
+let SOURCE = "corpus";
+let SOURCES = [];
+const POLLING = new Set();
+
+function stepList(status){
+  const steps = ["uploading","extracting","chunking","embedding","indexing","ready"];
+  const at = steps.indexOf(status);
+  return steps.map((s,i) => {
+    if(status === "failed") return `<span class="step ${i===0?"fail":""}">${s}</span>`;
+    const cls = i < at ? "done" : (i === at ? "now" : "");
+    return `<span class="step ${cls}">${s}</span>`;
+  }).join("");
+}
+
+function renderDocs(docs){
+  $("docs").innerHTML = docs.map(d => `
+    <div class="doc">
+      <div class="doc-top">
+        <span class="doc-i">&#128196;</span>
+        <span class="doc-name">${esc(d.name)}</span>
+        ${d.ready ? '<span class="badge high">ready</span>'
+                  : d.failed ? '<span class="badge low">failed</span>'
+                  : `<span class="badge">${esc(d.status)}…</span>`}
+        <button class="x" data-del="${esc(d.document_id)}" title="Remove">&times;</button>
+      </div>
+      <div class="doc-meta">
+        ${d.pages ? d.pages + " pages · " : ""}${d.chunks ? d.chunks + " chunks · " : ""}
+        ${(d.bytes/1024).toFixed(0)} KB${d.indexed_seconds ? " · indexed in " + d.indexed_seconds + "s" : ""}
+      </div>
+      <div class="steps">${stepList(d.status)}</div>
+      ${d.failed ? `<div class="doc-err">${esc(d.message || d.reason)}</div>` : ""}
+    </div>`).join("");
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    await fetch("/api/documents/" + b.dataset.del, {method:"DELETE"});
+    if(SOURCE === "document:" + b.dataset.del) SOURCE = "corpus";
+    refreshDocs(); refreshSources();
+  });
+}
+
+async function refreshDocs(){
+  try{
+    const docs = (await (await fetch("/api/documents")).json()).documents;
+    renderDocs(docs);
+    docs.filter(d => !d.ready && !d.failed).forEach(d => pollDoc(d.document_id));
+  }catch(e){}
+}
+
+function pollDoc(id){
+  if(POLLING.has(id)) return;
+  POLLING.add(id);
+  const tick = async () => {
+    try{
+      const r = await fetch("/api/documents/" + id);
+      const d = await r.json();
+      await refreshDocs();
+      if(d.ready || d.failed){
+        POLLING.delete(id);
+        await refreshSources();
+        if(d.ready){ SOURCE = "document:" + id; renderSources(); }
+        return;
+      }
+    }catch(e){ POLLING.delete(id); return; }
+    setTimeout(tick, 700);
+  };
+  setTimeout(tick, 500);
+}
+
+function renderSources(){
+  $("seg").innerHTML = SOURCES.map(s => `
+    <button class="${s.key === SOURCE ? "on" : ""}" data-src="${esc(s.key)}">
+      ${s.kind === "document" ? "&#128196;" : "&#128218;"} ${esc(s.label)}
+      <span class="n">${s.size ? s.size.toLocaleString() : 0}</span>
+    </button>`).join("");
+  document.querySelectorAll("[data-src]").forEach(b => b.onclick = () => {
+    SOURCE = b.dataset.src; renderSources();
+  });
+}
+
+async function refreshSources(){
+  try{
+    SOURCES = (await (await fetch("/api/sources")).json()).sources;
+    if(!SOURCES.some(s => s.key === SOURCE)) SOURCE = (SOURCES[0] || {key:"corpus"}).key;
+    renderSources();
+  }catch(e){}
+}
+
+async function uploadFile(file){
+  if(!file) return;
+  if(!/\.pdf$/i.test(file.name)){ showError("Only PDF files are supported", file.name); return; }
+  $("docs").insertAdjacentHTML("afterbegin",
+    `<div class="doc"><div class="doc-top"><span class="doc-i">&#128196;</span>
+     <span class="doc-name">${esc(file.name)}</span><span class="badge">uploading…</span></div>
+     <div class="steps">${stepList("uploading")}</div></div>`);
+  const form = new FormData();
+  form.append("file", file);
+  try{
+    const r = await fetch("/api/documents", {method:"POST", body:form});
+    const d = await r.json();
+    if(!r.ok){ showError("Upload failed", d.detail || r.statusText); refreshDocs(); return; }
+    await refreshDocs();
+    if(d.ready){ await refreshSources(); SOURCE = "document:" + d.document_id; renderSources(); }
+    else pollDoc(d.document_id);
+  }catch(e){ showError("Upload failed", String(e)); }
+}
+
 async function boot(){
   try{
     const r = await fetch("/health");
@@ -157,6 +302,8 @@ async function boot(){
   }catch(e){
     $("dot").className = "dot bad"; $("statustext").textContent = "backend unreachable";
   }
+  await refreshSources();
+  await refreshDocs();
   try{
     const d = await (await fetch("/api/demo")).json();
     $("chips").innerHTML = d.questions.map((q,i) =>
@@ -204,7 +351,8 @@ function render(d){
         <span class="num">${i+1}</span>
         <span>similarity ${c.score.toFixed(3)}</span>
         <span class="bar"><i style="width:${Math.max(4,Math.min(100,c.score*100)).toFixed(0)}%"></i></span>
-        <code>${esc(c.passage_id.slice(0,14))}…</code>
+        ${c.page ? `<span class="page-badge">Page ${c.page}</span>` : ""}
+        <code>${esc(c.document || c.passage_id.slice(0,14) + "…")}</code>
       </div>
       <div class="ptext" id="p${i}">${esc(c.text)}</div>
       ${c.text.length > 260 ? `<button class="more" onclick="document.getElementById('p${i}').classList.toggle('open');this.textContent=this.textContent.startsWith('Show more')?'Show less':'Show more ▾'">Show more ▾</button>` : ""}
@@ -219,11 +367,22 @@ function render(d){
       ${d.invented_citations && d.invented_citations.length ? '<span class="badge low">uncheckable citations dropped</span>' : ""}
     </div>
     <div class="atext">${esc(d.answer)}</div>
+    ${sourcesBlock(d)}
     <h2>Evidence</h2>
     ${cites}
     ${retrievalBlock(d)}
     <div class="timings">${timings}<span class="t">served ${(d.served_in_ms||0).toFixed(1)} ms</span></div>
   </div>`;
+}
+
+function sourcesBlock(d){
+  if(!d.sources_used || !d.sources_used.length) return "";
+  return `<h2>Sources</h2><div class="srcs">${d.sources_used.map(s => `
+    <div class="src"><span class="doc-i">&#128196;</span>
+      <b>${esc(s.document)}</b>
+      <span style="color:var(--ink-3)">&mdash;</span>
+      ${s.pages.map(p => `<span class="page-badge">Page ${p}</span>`).join(" ")}
+    </div>`).join("")}</div>`;
 }
 
 function retrievalBlock(d){
@@ -241,7 +400,7 @@ async function ask(){
   $("ask").disabled = true; loading();
   try{
     const r = await fetch("/api/query", {method:"POST", headers:{"Content-Type":"application/json"},
-                                          body: JSON.stringify({question})});
+                                          body: JSON.stringify({question, source: SOURCE})});
     if(!r.ok){
       const e = await r.json().catch(()=>({detail:r.statusText}));
       showError(`Request failed (${r.status})`, e.detail || "Unknown error");
@@ -252,6 +411,47 @@ async function ask(){
     showError("Could not reach the server", String(e));
   }finally{ $("ask").disabled = false; }
 }
+
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recogniser = null;
+if(Recognition){
+  recogniser = new Recognition();
+  recogniser.lang = "hi-IN";          // Hindi dictation
+  recogniser.interimResults = true;
+  recogniser.continuous = false;
+  let finalText = "";
+  recogniser.onstart = () => { finalText = ""; $("mic").classList.add("live"); $("hint").textContent = "सुन रहे हैं… speak now"; };
+  recogniser.onerror = (e) => { $("hint").textContent = e.error === "not-allowed"
+      ? "microphone permission denied" : "voice input error: " + e.error; };
+  recogniser.onend = () => {
+    $("mic").classList.remove("live");
+    $("hint").textContent = "⌘/Ctrl + Enter";
+    if(finalText.trim()){ $("q").value = finalText.trim(); ask(); }
+  };
+  recogniser.onresult = (event) => {
+    let interim = "";
+    for(let i = event.resultIndex; i < event.results.length; i++){
+      const chunk = event.results[i][0].transcript;
+      if(event.results[i].isFinal) finalText += chunk; else interim += chunk;
+    }
+    $("q").value = (finalText + interim).trim();
+  };
+  $("mic").onclick = () => {
+    if($("mic").classList.contains("live")){ recogniser.stop(); return; }
+    try{ recogniser.start(); }catch(e){}
+  };
+}else{
+  $("mic").onclick = () => { $("hint").textContent = "voice input needs Chrome, Edge or Safari"; };
+  $("mic").style.opacity = ".5";
+}
+
+$("drop").onclick = () => $("file").click();
+$("file").onchange = (e) => uploadFile(e.target.files[0]);
+["dragenter","dragover"].forEach(evt => $("drop").addEventListener(evt, e => {
+  e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave","drop"].forEach(evt => $("drop").addEventListener(evt, e => {
+  e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => uploadFile(e.dataTransfer.files[0]));
 
 $("ask").onclick = ask;
 $("clear").onclick = () => { $("q").value = ""; out.style.display = "none"; $("q").focus(); };

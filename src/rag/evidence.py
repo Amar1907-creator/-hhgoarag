@@ -7,12 +7,17 @@ explainable without a second API round trip.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 # Inner-product score on L2-normalised E5 vectors, i.e. cosine similarity.
 # E5 puts unrelated multilingual pairs around 0.70-0.78, so the floor sits above
 # that band rather than at an arbitrary round number.
-MIN_SCORE = 0.80
+MIN_SCORE = float(os.environ.get("HHGOARAG_MIN_SCORE", "0.80"))
+# Document chunks are longer and more heterogeneous than curated corpus passages,
+# so E5 similarity for a correct hit sits a little lower. Calibrated conservatively:
+# too high and every PDF question abstains, too low and weak matches get answered.
+DOCUMENT_MIN_SCORE = float(os.environ.get("HHGOARAG_DOC_MIN_SCORE", "0.78"))
 # The best hit must lead the field by this much, otherwise the top-k is a wash
 # and picking a winner would be arbitrary.
 MIN_MARGIN = 0.0
@@ -31,6 +36,9 @@ class Evidence:
     text: str
     score: float
     rank: int
+    # Source-specific fields travelling with the evidence: for an uploaded PDF
+    # this is what turns a citation into "GOA Task-2.pdf — Page 7".
+    meta: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -49,7 +57,17 @@ class EvidenceSet:
 def select_evidence(hits: list[tuple[str, float]], texts: dict[str, str], *,
                     min_score: float = MIN_SCORE, min_margin: float = MIN_MARGIN,
                     max_items: int = MAX_EVIDENCE, max_chars: int = MAX_EVIDENCE_CHARS) -> EvidenceSet:
-    """Turn ranked hits into a bounded evidence set, or refuse to."""
+    """Turn ranked hits into a bounded evidence set, or refuse to.
+
+    `texts` maps an ID either to its text, or to a record dict containing "text"
+    plus whatever metadata the source attaches (document name, page number).
+    """
+    def body(value) -> str:
+        return value["text"] if isinstance(value, dict) else value
+
+    def extra(value) -> dict:
+        return {k: v for k, v in value.items() if k != "text"} if isinstance(value, dict) else {}
+
     scored = [(passage_id, score) for passage_id, score in hits if passage_id in texts]
     if not scored:
         return EvidenceSet(reason=REASON_NO_HITS)
@@ -66,14 +84,16 @@ def select_evidence(hits: list[tuple[str, float]], texts: dict[str, str], *,
     for rank, (passage_id, score) in enumerate(scored[:max_items], start=1):
         if score < min_score:
             break
-        text = texts[passage_id]
+        record = texts[passage_id]
+        text = body(record)
         if len(text) > budget:
             if not items:
                 text = text[:budget]
             else:
                 break
         budget -= len(text)
-        items.append(Evidence(passage_id=passage_id, text=text, score=float(score), rank=rank))
+        items.append(Evidence(passage_id=passage_id, text=text, score=float(score),
+                              rank=rank, meta=extra(record)))
     if not items:
         return EvidenceSet(reason=REASON_LOW_SCORE, best_score=best_score, margin=margin)
     return EvidenceSet(items=items, eligible=True, reason=REASON_OK, best_score=best_score, margin=margin)

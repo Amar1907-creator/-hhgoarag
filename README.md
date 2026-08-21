@@ -53,6 +53,69 @@ Two properties are enforced in code, not by prompting:
   eventually corrupt one, and a corrupted citation cannot be told apart from an
   invented one.
 
+## Your own PDFs
+
+Beyond the Hindi corpus, HHGOARAG answers questions about documents you upload.
+Everything happens on your machine: `pypdf` is a pure-Python reader, and the
+uploaded file is never transmitted anywhere.
+
+```
+PDF → validate → extract text per page → chunk (never across a page boundary)
+    → embed → per-document FAISS index → retrieve → grounded answer
+    → citation naming the actual page
+```
+
+In the interface: drop a PDF on the upload panel, watch it move through
+**uploading → extracting → chunking → embedding → indexing → ready**, then pick
+it in the **Knowledge source** selector and ask. The answer's **Sources**
+section names the file and the exact pages used:
+
+> **GOA Task-2.pdf** — `Page 7`
+
+Every retrieved chunk carries its document ID, document name, page number,
+chunk ID and text, so a citation always points at a page a human can turn to.
+Chunks never span pages: that costs a little packing efficiency and buys the
+page number being true.
+
+**Ask by voice.** The microphone button uses the browser's built-in Hindi
+speech recognition (`hi-IN`), so speech-to-text needs no service from us and no
+key. Speak, watch the Hindi text appear, and it asks automatically. Voice works
+against an uploaded PDF exactly as it does against the corpus.
+
+**What happens with a difficult PDF**
+
+| Input | Behaviour |
+|---|---|
+| Scanned / image-only | Refused with "appears to be scanned images… this build does not run OCR". No empty document is created. |
+| Corrupted or truncated | Refused as damaged; the server stays up. |
+| Password protected | Refused as encrypted. |
+| Empty, or not a PDF | Rejected before any processing. |
+| Very large | Truncated at a page and character budget, and the record says so. |
+| Uploaded twice | Content-addressed: the same bytes return the existing index instead of re-embedding. |
+| Hindi, English or mixed | All extracted; the fixture covers all three. |
+
+Uploaded documents live under `data/documents/<document_id>/`, entirely apart
+from the Hindi corpus artifacts. Uploading a PDF cannot touch the corpus, and
+documents indexed in an earlier run are re-attached at startup.
+
+### Document API
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/documents` | multipart PDF upload; returns immediately, ingestion continues in the background |
+| `GET /api/documents` | all documents with status and progress |
+| `GET /api/documents/{id}` | one document — poll this for progress |
+| `DELETE /api/documents/{id}` | remove a document and its index |
+| `GET /api/sources` | selectable knowledge sources |
+
+`POST /api/query` takes an optional `source`: `"corpus"` or `"document:<id>"`.
+
+```bash
+curl -s -F file=@"GOA Task-2.pdf" localhost:8000/api/documents
+curl -s localhost:8000/api/query -H 'content-type: application/json' \
+  -d '{"question":"गोवा का सबसे व्यस्त समुद्र तट कौन सा है?","source":"document:doc_3a0305a3b5035904"}'
+```
+
 ## Dataset
 
 [`ai4bharat/MSMARCO-XI`](https://huggingface.co/datasets/ai4bharat/MSMARCO-XI),
@@ -192,13 +255,16 @@ alone, because it was already the fastest safe option.
 ```
 src/data/          pinned Parquet ingestion, normalization, dedup, schema
 src/retrieval/     embedding, FAISS index, metadata sidecar, metrics
-src/rag/           evidence selection, local generation, grounding, citations
+src/documents/     PDF extraction, page-aware chunking, per-document index, store
+src/rag/           evidence selection, local generation, grounding, citations, sources
 src/app/           service (loaded once) and HTTP API
 static/            single-file web interface, no build step, no CDN
 scripts/           preflight, builders, benchmark, pipeline driver, app, demo
-tests/             142 tests across data, retrieval, RAG, app
+tests/             170 tests across data, retrieval, RAG, documents, app
+tests/fixtures/    a real 8-page Hindi/English PDF used by the document tests
 data/processed/    generated corpora and indexes (git-ignored)
 data/manifests/    reproducibility and measurement records (tracked)
+data/documents/    uploaded PDFs, their chunks and indexes (git-ignored)
 ```
 
 ## Limitations
@@ -208,7 +274,10 @@ data/manifests/    reproducibility and measurement records (tracked)
   deferred until the dense baseline was measurable.
 - The evaluation sample is biased as described above.
 - The corpus covers a slice of the 778,638 available Hindi train records.
-- Text in, text out. No speech stage.
+- Speech is the browser's own recognition, so voice input needs Chrome, Edge or
+  Safari; there is a typed fallback everywhere.
+- Scanned PDFs are refused rather than OCR'd. Adding OCR would mean a Tesseract
+  dependency, and refusing clearly beats guessing badly.
 
 ## Judge demonstration
 
@@ -223,7 +292,13 @@ Then, in the browser:
 2. Expand **All retrieved passages** — every candidate with its similarity score.
 3. Click the **बृहस्पति ग्रह** question — the system declines, states why, and
    shows the best score it found. Nothing is invented.
-4. Type any Hindi question of your own.
+4. **Upload a PDF** (`tests/fixtures/goa-task-2-sample.pdf` works, or any of your
+   own). Watch it move through the ingestion stages to **ready**.
+5. Pick it in **Knowledge source**, click the **microphone**, and ask in Hindi:
+   *"गोवा का सबसे व्यस्त समुद्र तट कौन सा है?"* The recognised Hindi appears in the
+   box, the answer comes back grounded, and **Sources** reads
+   **GOA Task-2.pdf — Page 7**.
+6. Ask the same PDF something it cannot support — the system abstains.
 
 No API key is entered at any point. Disconnect from the network after startup
 and every one of these still works.

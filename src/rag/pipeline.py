@@ -13,6 +13,7 @@ from typing import Any
 
 from src.rag.evidence import EvidenceSet, select_evidence, validate_citations
 from src.rag.generator import ExtractiveGenerator, Generator
+from src.rag.sources import CorpusSource, KnowledgeSource
 from src.rag.store import PassageTextStore
 
 REASON_UNGROUNDED = "answer_without_valid_citations"
@@ -24,6 +25,8 @@ class Answer:
     question: str
     answer: str = ""
     citations: list[dict] = field(default_factory=list)
+    source: str = "corpus"
+    sources_used: list[dict] = field(default_factory=list)
     grounded: bool = False
     abstained: bool = True
     reason: str = ""
@@ -38,12 +41,18 @@ class Answer:
 
 
 class RagPipeline:
-    def __init__(self, *, embedder, index, texts: PassageTextStore,
+    def __init__(self, *, embedder, index=None, texts: PassageTextStore | None = None,
                  generator: Generator | None = None, top_k: int = 10,
-                 min_score: float | None = None, max_evidence: int = 5) -> None:
+                 min_score: float | None = None, max_evidence: int = 5,
+                 sources: dict[str, KnowledgeSource] | None = None,
+                 default_source: str = "corpus") -> None:
         self.embedder = embedder
         self.index = index
         self.texts = texts
+        self.sources: dict[str, KnowledgeSource] = dict(sources or {})
+        if index is not None and texts is not None and "corpus" not in self.sources:
+            self.sources["corpus"] = CorpusSource(index, texts)
+        self.default_source = default_source
         self.generator = generator or ExtractiveGenerator()
         self.top_k = top_k
         self.max_evidence = max_evidence
@@ -64,33 +73,54 @@ class RagPipeline:
         return cls(embedder=embedder, index=loaded, texts=PassageTextStore.build(corpus),
                    generator=generator, top_k=top_k, min_score=min_score, max_evidence=max_evidence)
 
-    def retrieve(self, question: str) -> tuple[list[tuple[str, float]], dict[str, float]]:
+    # -- sources ---------------------------------------------------------
+    def add_source(self, source: KnowledgeSource) -> None:
+        self.sources[source.key] = source
+
+    def remove_source(self, key: str) -> None:
+        self.sources.pop(key, None)
+
+    def resolve_source(self, key: str | None) -> KnowledgeSource:
+        wanted = key or self.default_source
+        if wanted in self.sources:
+            return self.sources[wanted]
+        raise KeyError(f"unknown knowledge source {wanted!r}; "
+                       f"available: {', '.join(sorted(self.sources)) or 'none'}")
+
+    def describe_sources(self) -> list[dict]:
+        return [{"key": source.key, "label": source.label, "kind": source.kind,
+                 "size": source.size()} for source in self.sources.values()]
+
+    def retrieve(self, question: str, source: KnowledgeSource | None = None):
         timings: dict[str, float] = {}
+        target = source or self.resolve_source(None)
         start = time.perf_counter()
         vector = self.embedder.embed_queries([question])
         timings["embed"] = (time.perf_counter() - start) * 1e3
         start = time.perf_counter()
-        hits = self.index.search(vector, self.top_k)[0]
+        hits = target.search(vector, self.top_k)
         timings["search"] = (time.perf_counter() - start) * 1e3
         return hits, timings
 
-    def answer(self, question: str) -> Answer:
+    def answer(self, question: str, source: str | None = None) -> Answer:
         overall = time.perf_counter()
-        result = Answer(question=question, generator=self.generator.name)
+        target = self.resolve_source(source)
+        result = Answer(question=question, generator=self.generator.name, source=target.key)
         if not question or not question.strip():
             result.reason = "empty_question"
             return result
 
-        hits, timings = self.retrieve(question)
+        hits, timings = self.retrieve(question, target)
         start = time.perf_counter()
-        texts = self.texts.texts([passage_id for passage_id, _ in hits])
+        texts = target.hydrate([passage_id for passage_id, _ in hits])
         timings["lookup"] = (time.perf_counter() - start) * 1e3
         result.retrieval = [{"passage_id": passage_id, "score": round(float(score), 4)}
                             for passage_id, score in hits]
 
         kwargs = {"max_items": self.max_evidence}
-        if self.min_score is not None:
-            kwargs["min_score"] = self.min_score
+        floor = self.min_score if self.min_score is not None else getattr(target, "min_score", None)
+        if floor is not None:
+            kwargs["min_score"] = floor
         evidence: EvidenceSet = select_evidence(hits, texts, **kwargs)
         if not evidence.eligible:
             result.reason = evidence.reason
@@ -116,7 +146,9 @@ class RagPipeline:
                 result.answer = generated.answer
                 result.citations = [{"passage_id": passage_id, "score": round(by_id[passage_id].score, 4),
                                      "rank": by_id[passage_id].rank,
-                                     "text": by_id[passage_id].text} for passage_id in kept]
+                                     "text": by_id[passage_id].text,
+                                     **by_id[passage_id].meta} for passage_id in kept]
+                result.sources_used = summarise_sources(result.citations)
                 result.grounded = True
                 result.abstained = False
                 result.reason = evidence.reason
@@ -126,4 +158,23 @@ class RagPipeline:
         return result
 
     def close(self) -> None:
-        self.texts.close()
+        if self.texts is not None:
+            self.texts.close()
+
+
+def summarise_sources(citations: list[dict]) -> list[dict]:
+    """The "Sources" list: which document, which pages, deduplicated in order."""
+    summary: list[dict] = []
+    for citation in citations:
+        name = citation.get("document")
+        if not name:
+            continue
+        entry = next((item for item in summary if item["document"] == name), None)
+        if entry is None:
+            entry = {"document": name, "document_id": citation.get("document_id", ""), "pages": []}
+            summary.append(entry)
+        if citation.get("page") and citation["page"] not in entry["pages"]:
+            entry["pages"].append(citation["page"])
+    for entry in summary:
+        entry["pages"].sort()
+    return summary

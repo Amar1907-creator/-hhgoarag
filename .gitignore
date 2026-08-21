@@ -1,5 +1,6 @@
 # Generated corpus, index, and dedup state. Never commit downloaded dataset data.
 data/processed/
+data/documents/
 
 # Python bytecode and environments
 __pycache__/
