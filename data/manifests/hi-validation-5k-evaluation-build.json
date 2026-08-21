@@ -1,0 +1,24 @@
+{
+  "dataset_id": "ai4bharat/MSMARCO-XI",
+  "revision": "bf5cdc1f26e581e519018e434db14edd1b77602b",
+  "processing_timestamp": "2026-08-21T18:29:08.685562+00:00",
+  "configuration": {
+    "loader_config": "hi",
+    "split": "validation",
+    "limit": null,
+    "output_prefix": "hi-validation-5k",
+    "corpus": "data/processed/hi-train-5k-corpus.jsonl",
+    "corpus_passages": 49511,
+    "normalization": "nfkc-collapse-whitespace-v1",
+    "positive_join": "validation is_selected labels intersected with train corpus passage_id set"
+  },
+  "records_seen": 97941,
+  "selected_not_in_train_corpus": 57367,
+  "queries_without_corpus_positive": 97848,
+  "evaluation_queries": 93,
+  "join_rate": 0.0009495512604527215,
+  "records_per_second": 60.183447914565775,
+  "scanned_whole_file": true,
+  "elapsed_seconds": 1627.3743594589905,
+  "evaluation": "data/processed/hi-validation-5k-evaluation.jsonl"
+}

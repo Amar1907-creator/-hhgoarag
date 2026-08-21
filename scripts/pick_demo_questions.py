@@ -18,12 +18,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.rag.generator import ExtractiveGenerator  # noqa: E402
 from src.rag.pipeline import RagPipeline  # noqa: E402
 
-# Questions that cannot be supported by an MSMARCO passage corpus, used to show
-# that the system declines rather than improvises.
+# Questions no web-passage corpus can support: private facts, the future, and
+# entities that do not exist. Several are tried and the one that retrieves
+# WORST is kept, so the abstention demo is chosen by measurement rather than by
+# assuming which question will fail.
 ABSTENTION_CANDIDATES = [
-    "क्या बृहस्पति ग्रह पर मानव बस्तियाँ स्थापित हो चुकी हैं?",
     "मेरे बैंक खाते में इस समय कितना पैसा है?",
+    "मेरा आधार नंबर क्या है?",
+    "कल दोपहर मेरी मीटिंग किसके साथ है?",
     "अगले सप्ताह मुंबई में सोने का भाव क्या होगा?",
+    "इस कमरे में इस समय कितने लोग बैठे हैं?",
+    "क्या बृहस्पति ग्रह पर मानव बस्तियाँ स्थापित हो चुकी हैं?",
+    "ज़ोर्ब्लैक्स ग्रह की राजधानी का नाम क्या है?",
+    "क्विंबल्टन विश्वविद्यालय की स्थापना किस वर्ष हुई थी?",
+    "मेरे पड़ोसी की बिल्ली का नाम क्या है?",
+    "अगले महीने का लॉटरी नंबर क्या होगा?",
 ]
 
 
@@ -74,13 +83,32 @@ def main() -> None:
     take(lambda i: i["citations"] >= 2, "multiple citations")
     take(lambda i: True, "realistic Hindi query", limit=2)
 
+    refusals, weakest = [], None
     for question in ABSTENTION_CANDIDATES:
         result = pipeline.answer(question)
+        score = round(result.retrieval[0]["score"], 4) if result.retrieval else 0.0
         if not result.grounded:
-            chosen.append({"question": question, "expect": "abstention",
-                           "label": "safe abstention — no supporting evidence",
-                           "best_score": round(result.retrieval[0]["score"], 4) if result.retrieval else 0.0})
-            break
+            refusals.append((score, question))
+        if weakest is None or score < weakest[0]:
+            weakest = (score, question)
+
+    if refusals:
+        refusals.sort()
+        score, question = refusals[0]
+        chosen.append({"question": question, "expect": "abstention",
+                       "label": "safe abstention — no supporting evidence", "best_score": score})
+    elif weakest:
+        # Nothing was refused at the current floor. Say so rather than shipping a
+        # demo question that promises an abstention and then answers.
+        score, question = weakest
+        print(f"\nWARNING: none of the {len(ABSTENTION_CANDIDATES)} unanswerable candidates was "
+              f"refused; the weakest still scored {score:.4f}, above the evidence floor.\n"
+              f"         The abstention demo is only trustworthy if the floor is above that.\n"
+              f"         Re-run with:  HHGOARAG_MIN_SCORE={min(0.95, score + 0.01):.2f} "
+              f"python3 scripts/pick_demo_questions.py ...", file=sys.stderr)
+        chosen.append({"question": question, "expect": "abstention_unverified",
+                       "label": f"weakest retrieval found ({score:.3f}) — verify before demonstrating",
+                       "best_score": score})
 
     pipeline.close()
     args.output.parent.mkdir(parents=True, exist_ok=True)

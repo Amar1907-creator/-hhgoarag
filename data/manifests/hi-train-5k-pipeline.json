@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-08-21T18:42:19.621352+00:00",
+  "config": "hi",
+  "revision": "bf5cdc1f26e581e519018e434db14edd1b77602b",
+  "limit": 5000,
+  "prefix": "hi-train-5k",
+  "corpus": "data/processed/hi-train-5k-corpus.jsonl",
+  "evaluation": "data/processed/hi-validation-5k-evaluation.jsonl",
+  "index_dir": "data/processed/hi-train-5k-index",
+  "benchmark": "data/manifests/hi-train-5k-benchmark.json",
+  "coverage": {
+    "corpus_passages": 49511,
+    "evaluation_queries": 93,
+    "total_positive_ids": 96,
+    "positive_ids_in_corpus": 96,
+    "queries_with_corpus_positive": 93,
+    "positive_coverage_pct": 100.0,
+    "query_coverage_pct": 100.0
+  },
+  "metrics": {
+    "queries": 93,
+    "recall_at_1": 0.24731182795698925,
+    "recall_at_5": 0.5913978494623656,
+    "recall_at_10": 0.7204301075268817,
+    "mrr": 0.39482846902201746
+  },
+  "stage_seconds": {
+    "preflight": 108.7,
+    "corpus": 274.8,
+    "evaluation": 1627.9,
+    "index_and_benchmark": 790.6,
+    "total": 2802.3
+  }
+}

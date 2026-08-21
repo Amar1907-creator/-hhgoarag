@@ -126,7 +126,8 @@ def main() -> None:
         "pipeline health measure, not a claim about Hindi retrieval quality in general.",
         f"Corpus covers {num(build.get('records_processed'))} of 778,638 Hindi train records.",
         "Single language (Hindi). No BM25, fusion, or reranking; dense retrieval only.",
-        "Text in, text out; no speech stage.",
+        "Voice input uses the browser's own hi-IN recognition, so it needs Chrome, "
+        "Edge or Safari; typing works everywhere.",
         "Generated answers need a local Ollama model; without one the system quotes "
         "retrieved evidence verbatim, which is still fully grounded.",
     ]

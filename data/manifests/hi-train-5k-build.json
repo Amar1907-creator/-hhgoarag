@@ -1,0 +1,28 @@
+{
+  "dataset_id": "ai4bharat/MSMARCO-XI",
+  "revision": "bf5cdc1f26e581e519018e434db14edd1b77602b",
+  "processing_timestamp": "2026-08-21T18:02:00.817598+00:00",
+  "configuration": {
+    "loader_config": "hi",
+    "split": "train",
+    "limit": 5000,
+    "output_prefix": "hi-train-5k",
+    "mode": "fresh",
+    "dedup_reset": true,
+    "normalization": "nfkc-collapse-whitespace-v1",
+    "deduplication": "exact-language-normalized-text-sha256-v1"
+  },
+  "records_processed": 5000,
+  "total_passages": 49885,
+  "unique_passages": 49511,
+  "duplicate_passages": 374,
+  "duplicate_percentage": 0.7497243660418964,
+  "dedup_rows_at_start": 0,
+  "dedup_rows_at_end": 49511,
+  "elapsed_seconds": 274.5970184589969,
+  "records_per_second": 18.20850068969924,
+  "corpus": "data/processed/hi-train-5k-corpus.jsonl",
+  "provenance": "data/processed/hi-train-5k-provenance.jsonl",
+  "validation_errors": "data/processed/hi-train-5k-validation-errors.jsonl",
+  "dedup_state": "data/processed/hi-train-5k-seen.sqlite3"
+}
