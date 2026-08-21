@@ -1,0 +1,16 @@
+.git
+.git/**
+__pycache__/
+**/__pycache__/
+*.pyc
+data/processed/*
+!data/processed/hi-train-5k-corpus.jsonl
+!data/processed/hi-train-5k-index
+!data/processed/hi-train-5k-index/**
+!data/processed/hi-validation-5k-evaluation.jsonl
+data/documents/
+docs/
+smoke/
+tiny-bert/
+tiny-e5/
+*.md

@@ -8,6 +8,7 @@ API and the web interface. No hosted API and no API key are involved.
 from __future__ import annotations
 
 import argparse
+import os
 import socket
 import sys
 import threading
@@ -32,7 +33,8 @@ def free_port(preferred: int, host: str) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000)
+    # Container hosts inject $PORT; honour it so the same image runs anywhere.
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     parser.add_argument("--prefix", default=None, help="artifact prefix, e.g. hi-train-5k")
     parser.add_argument("--generator", choices=("auto", "ollama", "extractive"), default="auto")
     parser.add_argument("--device", default=None, help="cpu, mps or cuda; auto-detected by default")

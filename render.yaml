@@ -1,0 +1,15 @@
+# Render blueprint. Push the repo, then New > Blueprint and point it here.
+services:
+  - type: web
+    name: hhgoarag
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter          # 512 MB will not hold the model; starter or larger
+    healthCheckPath: /health
+    envVars:
+      - key: SARVAM_API_KEY
+        sync: false        # set this in the dashboard, never in the repo
+      - key: HHGOARAG_PREFIX
+        value: hi-train-5k
+      - key: HHGOARAG_STT_PROVIDER
+        value: sarvam

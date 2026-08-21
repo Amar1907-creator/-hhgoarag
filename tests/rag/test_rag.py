@@ -162,7 +162,8 @@ class PipelineTests(unittest.TestCase):
 
     def test_grounded_answer_carries_citations_with_text(self):
         pipeline = self.pipeline(HITS, ScriptedGenerator(
-            GeneratedAnswer(answer="उत्तर", citations=["p_a"], model="scripted")))
+            GeneratedAnswer(answer="मैनहट्टन परियोजना का प्रभाव बड़ा था।",
+                            citations=["p_a"], model="scripted")))
         result = pipeline.answer("सवाल?")
         self.assertTrue(result.grounded)
         self.assertFalse(result.abstained)
@@ -198,7 +199,7 @@ class PipelineTests(unittest.TestCase):
 
     def test_partly_invented_citations_keep_the_valid_ones(self):
         pipeline = self.pipeline(HITS, ScriptedGenerator(
-            GeneratedAnswer(answer="उत्तर", citations=["p_b", "p_nope"])))
+            GeneratedAnswer(answer="परमाणु अनुसंधान महत्वपूर्ण था।", citations=["p_b", "p_nope"])))
         result = pipeline.answer("सवाल?")
         self.assertTrue(result.grounded)
         self.assertEqual([c["passage_id"] for c in result.citations], ["p_b"])

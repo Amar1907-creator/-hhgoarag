@@ -338,16 +338,17 @@ function applyLanguage(){
   q.lang = l.code;
   q.dir = l.direction;
   $("langLabel").textContent = `${l.native} · Language`;
-  const speech = l.speech_locale
-    ? (l.speech_status === "verified" ? `voice: ${l.speech_locale}` : `voice: ${l.speech_locale} (untested)`)
-    : "no voice engine for this language";
+  const speech = SPEECH.available
+    ? `voice: ${SPEECH.provider} ${SPEECH.model}`
+    : (l.speech_locale ? `voice: browser fallback ${l.speech_locale}` : "no voice engine for this language");
   $("langNote").textContent = `${l.script} script · ${speech}`;
-  if(recogniser && l.speech_locale) recogniser.lang = l.speech_locale;
-  const usable = !!l.speech_locale;
+  const usable = SPEECH.available || !!l.speech_locale;
   $("mic").disabled = !usable;
   $("mic").style.opacity = usable ? "1" : ".45";
-  $("mic").title = usable ? `Ask by voice (${l.speech_locale})`
-                          : `No browser speech engine is known for ${l.english}`;
+  $("mic").title = SPEECH.available
+    ? `Ask by voice — transcribed by ${SPEECH.provider}`
+    : (l.speech_locale ? `Ask by voice — local browser fallback (${l.speech_locale})`
+                       : `No speech engine available for ${l.english}`);
   sourceHint();
 }
 
@@ -374,7 +375,8 @@ async function boot(){
     const ok = h.status === "ok";
     $("dot").className = "dot " + (ok ? (h.generator_available ? "ok" : "warn") : "bad");
     $("statustext").textContent = ok
-      ? `${h.corpus_passages.toLocaleString()} passages · ${h.device} · ${h.generator}`
+      ? `${h.corpus_passages.toLocaleString()} passages · ${h.device} · `
+        + `${(h.speech && h.speech.available) ? "STT " + h.speech.provider : "STT not configured"}`
       : "not ready — build the corpus first";
     $("status").title = ok
       ? `index ${h.index_vectors.toLocaleString()} vectors · ${h.embedding_model} · loaded in ${h.load_seconds}s`
@@ -383,6 +385,7 @@ async function boot(){
   }catch(e){
     $("dot").className = "dot bad"; $("statustext").textContent = "backend unreachable";
   }
+  await refreshSpeech();
   await refreshLanguages();
   await refreshSources();
   await refreshDocs();
@@ -494,50 +497,104 @@ async function ask(){
   }finally{ $("ask").disabled = false; }
 }
 
-const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recogniser = null;
-if(Recognition){
-  recogniser = new Recognition();
-  recogniser.lang = "hi-IN";          // replaced per selected language
-  recogniser.interimResults = true;
-  recogniser.continuous = false;
-  let finalText = "";
-  recogniser.onstart = () => { finalText = ""; $("mic").classList.add("live");
-    $("micLabel").textContent = "सुन रहे हैं…"; $("hint").textContent = "speak your question in Hindi"; };
-  recogniser.onerror = (e) => {
-    const l = currentLang();
-    if(e.error === "language-not-supported" || e.error === "service-not-allowed"){
-      $("hint").textContent = `this browser cannot recognise ${l ? l.english : "this language"}`
-        + " — please type instead";
-      $("mic").disabled = true; $("mic").style.opacity = ".45";
-    }else{
-      $("hint").textContent = e.error === "not-allowed"
-        ? "microphone permission denied" : "voice input error: " + e.error;
-    }
-  };
-  recogniser.onend = () => {
-    $("mic").classList.remove("live");
-    $("micLabel").textContent = "बोलें · Voice";
-    $("hint").textContent = "⌘/Ctrl + Enter";
-    if(finalText.trim()){ $("q").value = finalText.trim(); ask(); }
-  };
-  recogniser.onresult = (event) => {
-    let interim = "";
-    for(let i = event.resultIndex; i < event.results.length; i++){
-      const chunk = event.results[i][0].transcript;
-      if(event.results[i].isFinal) finalText += chunk; else interim += chunk;
-    }
-    $("q").value = (finalText + interim).trim();
-  };
-  $("mic").onclick = () => {
-    if($("mic").classList.contains("live")){ recogniser.stop(); return; }
-    try{ recogniser.start(); }catch(e){}
-  };
-}else{
-  $("mic").onclick = () => { $("hint").textContent = "voice input needs Chrome, Edge or Safari"; };
-  $("mic").style.opacity = ".55";
-  $("mic").title = "Voice input needs Chrome, Edge or Safari";
+// Voice input goes through the configured provider (Sarvam), as the task
+// specification requires. The browser recogniser is kept only as a clearly
+// labelled offline fallback for development when no provider key is present.
+let SPEECH = {available:false, provider:"", model:""};
+let recorder = null, chunksBuf = [], recogniser = null;
+
+async function refreshSpeech(){
+  try{
+    SPEECH = await (await fetch("/api/speech")).json();
+  }catch(e){ SPEECH = {available:false, provider:"", model:""}; }
+  applyLanguage();
 }
+
+function micIdle(){
+  $("mic").classList.remove("live");
+  $("micLabel").textContent = SPEECH.available ? "बोलें · Voice" : "बोलें · Voice (local)";
+  $("hint").textContent = "⌘/Ctrl + Enter";
+}
+
+async function startRecording(){
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    $("hint").textContent = "this browser cannot record audio"; return;
+  }
+  let stream;
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ $("hint").textContent = "microphone permission denied"; return; }
+  chunksBuf = [];
+  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
+             : (MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "");
+  recorder = mime ? new MediaRecorder(stream, {mimeType:mime}) : new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => { if(e.data && e.data.size) chunksBuf.push(e.data); };
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunksBuf, {type: recorder.mimeType || "audio/webm"});
+    $("micLabel").textContent = "भेजा जा रहा है…";
+    $("hint").textContent = `transcribing with ${SPEECH.provider || "the speech provider"}…`;
+    const form = new FormData();
+    form.append("file", blob, "question.webm");
+    try{
+      const r = await fetch(`/api/transcribe?language=${encodeURIComponent(LANG || "")}`,
+                            {method:"POST", body:form});
+      const d = await r.json();
+      if(!r.ok){
+        showError("Speech-to-text failed", d.detail || r.statusText);
+        micIdle(); return;
+      }
+      $("q").value = d.text;
+      $("hint").textContent = `${d.provider} ${d.model} · ${d.latency_ms} ms`;
+      micIdle();
+      ask();
+    }catch(e){ showError("Speech-to-text failed", String(e)); micIdle(); }
+  };
+  recorder.start();
+  $("mic").classList.add("live");
+  $("micLabel").textContent = "सुन रहे हैं… tap to stop";
+  $("hint").textContent = "speak your question, then tap the button again";
+}
+
+function browserFallback(){
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Recognition){ $("hint").textContent = "voice needs a provider key or Chrome/Edge/Safari"; return; }
+  if(!recogniser){
+    recogniser = new Recognition();
+    recogniser.interimResults = true; recogniser.continuous = false;
+    let finalText = "";
+    recogniser.onstart = () => { finalText = ""; $("mic").classList.add("live");
+      $("micLabel").textContent = "सुन रहे हैं…";
+      $("hint").textContent = "local browser recogniser (no provider key set)"; };
+    recogniser.onerror = (e) => {
+      const l = currentLang();
+      $("hint").textContent = (e.error === "language-not-supported")
+        ? `this browser cannot recognise ${l ? l.english : "this language"} — please type`
+        : (e.error === "not-allowed" ? "microphone permission denied" : "voice error: " + e.error);
+      micIdle();
+    };
+    recogniser.onend = () => { micIdle(); if(finalText.trim()){ $("q").value = finalText.trim(); ask(); } };
+    recogniser.onresult = (event) => {
+      let interim = "";
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const c = event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalText += c; else interim += c;
+      }
+      $("q").value = (finalText + interim).trim();
+    };
+  }
+  const l = currentLang();
+  if(l && l.speech_locale) recogniser.lang = l.speech_locale;
+  try{ recogniser.start(); }catch(e){}
+}
+
+$("mic").onclick = () => {
+  if($("mic").classList.contains("live")){
+    if(recorder && recorder.state === "recording") recorder.stop();
+    else if(recogniser) recogniser.stop();
+    return;
+  }
+  if(SPEECH.available) startRecording(); else browserFallback();
+};
 
 $("lang").onchange = async (e) => {
   LANG = e.target.value; SOURCE = null;

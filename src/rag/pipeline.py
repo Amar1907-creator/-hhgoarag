@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from src.rag.evidence import EvidenceSet, select_evidence, validate_citations
+from src.rag.guardrails import screen_input, screen_output
 from src.rag.generator import ExtractiveGenerator, Generator
 from src.rag.sources import CorpusSource, KnowledgeSource
 from src.rag.store import PassageTextStore
@@ -34,6 +35,8 @@ class Answer:
     timings_ms: dict[str, float] = field(default_factory=dict)
     retrieval: list[dict] = field(default_factory=list)
     invented_citations: list[str] = field(default_factory=list)
+    guardrail: dict = field(default_factory=dict)
+    blocked: bool = False
     usage: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -106,8 +109,14 @@ class RagPipeline:
         overall = time.perf_counter()
         target = self.resolve_source(source)
         result = Answer(question=question, generator=self.generator.name, source=target.key)
-        if not question or not question.strip():
-            result.reason = "empty_question"
+
+        # Guardrail 1: refuse before spending an embedding, let alone a model call.
+        verdict = screen_input(question)
+        result.guardrail = verdict.to_dict()
+        if not verdict.allowed:
+            result.blocked = True
+            result.reason = verdict.code
+            result.timings_ms = {"total": round((time.perf_counter() - overall) * 1e3, 2)}
             return result
 
         hits, timings = self.retrieve(question, target)
@@ -143,6 +152,14 @@ class RagPipeline:
                 result.reason = REASON_UNGROUNDED
             else:
                 by_id = {item.passage_id: item for item in evidence.items}
+                # Guardrail 3: the answer must be carried by what it cites.
+                supported = screen_output(generated.answer, [by_id[pid].text for pid in kept])
+                result.guardrail = {**result.guardrail, "output": supported.to_dict()}
+                if not supported.allowed:
+                    result.reason = REASON_UNGROUNDED
+                    timings["total"] = (time.perf_counter() - overall) * 1e3
+                    result.timings_ms = {n: round(v, 2) for n, v in timings.items()}
+                    return result
                 result.answer = generated.answer
                 result.citations = [{"passage_id": passage_id, "score": round(by_id[passage_id].score, 4),
                                      "rank": by_id[passage_id].rank,

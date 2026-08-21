@@ -53,75 +53,6 @@ Two properties are enforced in code, not by prompting:
   eventually corrupt one, and a corrupted citation cannot be told apart from an
   invented one.
 
-## Languages
-
-HHGOARAG is one pipeline that takes a language as configuration. There is no
-per-language code path: adding a language is a row in `src/languages.py` plus a
-corpus build.
-
-```
-language → loader → normalisation → deduplication → corpus
-         → multilingual E5 embeddings → FAISS → grounding → local generation → citations
-```
-
-The pinned MSMARCO-XI revision provides **13 languages with train data** —
-Assamese, Bengali, Gujarati, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia,
-Punjabi, Sanskrit, Tamil, Urdu — plus Telugu, which has validation data but no
-train file and therefore cannot have a corpus built from this revision.
-
-The current state of every language is in
-[`docs/LANGUAGE_MATRIX.md`](docs/LANGUAGE_MATRIX.md), regenerated from manifests:
-
-```bash
-python3 scripts/language_matrix.py
-```
-
-A dash in that table means the run that would produce the number has not
-happened. Nothing is estimated, and metrics are withheld entirely when
-evaluation coverage falls below 95%.
-
-### Adding a language
-
-```bash
-python3 scripts/run_pipeline.py --language ta --limit 5000     # one language
-python3 scripts/build_languages.py --languages ta,bn,mr        # several
-python3 scripts/build_languages.py --all                       # every trainable language
-```
-
-Each language builds into its own prefix (`ta-train-5k`), its own index
-directory and its own evaluation set, so one language can neither corrupt nor
-be confused with another. Passage IDs include the language, so identical text in
-Hindi and Marathi gets different identifiers by construction. Evaluation runs
-per language; there is no aggregate score hiding a weak one.
-
-One embedding model serves all of them: `intfloat/multilingual-e5-small`. The
-service loads each language's index once, on first use, and keeps it — building
-thirteen indexes into memory at startup would cost about 90 MB each for nothing.
-
-### In the interface
-
-A **भाषा · Language** selector lists every language in its own script. Choosing
-one changes the question placeholder, the text direction (Urdu renders
-right-to-left), the corpus being searched and the speech-recognition locale.
-Languages without a build are visible but disabled, labelled *not built* — the
-user never sees a config code like `loader_config=hi`.
-
-### Voice, honestly
-
-Voice uses the browser's own speech recognition, so the browser — not this
-project — decides which languages work. The registry records the BCP-47 locale
-to *attempt*:
-
-- **Locale offered, untested**: Bengali, Gujarati, Hindi, Kannada, Malayalam,
-  Marathi, Nepali, Punjabi, Tamil, Telugu, Urdu.
-- **No known engine**: Assamese, Odia, Sanskrit. The microphone is disabled for
-  these and says why.
-
-No language is marked *verified* until a human has confirmed dictation actually
-works in it; a test fails the build if that status is set without evidence. If
-the browser rejects a locale at runtime, the interface disables the microphone
-and tells the user to type instead, rather than failing silently.
-
 ## Your own PDFs
 
 Beyond the Hindi corpus, HHGOARAG answers questions about documents you upload.
@@ -146,10 +77,12 @@ chunk ID and text, so a citation always points at a page a human can turn to.
 Chunks never span pages: that costs a little packing efficiency and buys the
 page number being true.
 
-**Ask by voice.** The microphone button uses the browser's built-in Hindi
-speech recognition (`hi-IN`), so speech-to-text needs no service from us and no
-key. Speak, watch the Hindi text appear, and it asks automatically. Voice works
-against an uploaded PDF exactly as it does against the corpus.
+**Ask by voice.** The microphone records audio in the browser and posts it to
+`/api/transcribe`, which transcribes it with **Sarvam** (`saarika`) — the
+provider the task specification requires. Set `SARVAM_API_KEY` to enable it. If
+no provider key is present the interface falls back to the browser's own
+recogniser and says so. Voice works against an uploaded PDF exactly as it does
+against the corpus.
 
 **What happens with a difficult PDF**
 
@@ -347,6 +280,14 @@ data/documents/    uploaded PDFs, their chunks and indexes (git-ignored)
   Safari; there is a typed fallback everywhere.
 - Scanned PDFs are refused rather than OCR'd. Adding OCR would mean a Tesseract
   dependency, and refusing clearly beats guessing badly.
+
+## Task requirements
+
+This build targets HH Goa 2026 Task 2. Each requirement is mapped to its
+implementation and a verification command in
+[`docs/TASK_COMPLIANCE.md`](docs/TASK_COMPLIANCE.md) — speech-to-text via Sarvam,
+six comparable chunking strategies with a benchmark, P50/P70/P100 latency
+analytics, the staged harness, and the three guardrail layers.
 
 ## Release audit
 

@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from src.documents.ingest import MAX_UPLOAD_BYTES
+from src.speech.providers import MAX_AUDIO_BYTES, SpeechError
 
 from src.app.service import Service
 
@@ -104,6 +105,29 @@ def create_app(service: Service | None = None, *, load: bool = True) -> FastAPI:
             raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
         payload["served_in_ms"] = round((time.perf_counter() - started) * 1e3, 2)
         return payload
+
+    @application.post("/api/transcribe")
+    async def transcribe(file: UploadFile = File(...), language: str | None = None) -> dict:
+        """Voice input stage: audio in, text out, via the configured provider."""
+        audio = await file.read()
+        if not audio:
+            raise HTTPException(status_code=422, detail="no audio was received")
+        if len(audio) > MAX_AUDIO_BYTES:
+            raise HTTPException(status_code=413,
+                                detail=f"audio exceeds {MAX_AUDIO_BYTES // (1024 * 1024)} MB")
+        try:
+            return state.transcribe(audio, filename=file.filename or "audio.webm",
+                                    language=language)
+        except SpeechError as exc:
+            # 503 when the provider is unreachable or unconfigured, 502 when it
+            # answered but the answer was unusable.
+            status = 503 if not getattr(state.speech, "available", False) else 502
+            raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+    @application.get("/api/speech")
+    def speech_status() -> dict:
+        status = state.speech.status() if state.speech else {"available": False}
+        return {**status, "endpoint": "/api/transcribe"}
 
     @application.get("/api/languages")
     def languages() -> dict:

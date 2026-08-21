@@ -21,6 +21,7 @@ from src.rag.generator import build_generator
 from src.rag.pipeline import RagPipeline
 from src.languages import DEFAULT_CODE, Language, find as find_language, from_prefix
 from src.rag.sources import CorpusSource, DocumentSource
+from src.speech.providers import SpeechError, build_speech
 from src.rag.store import PassageTextStore
 
 DEFAULT_PREFIX = os.environ.get("HHGOARAG_PREFIX", "")
@@ -94,6 +95,7 @@ class ServiceStatus:
     generator_available: bool = False
     generator_detail: dict = field(default_factory=dict)
     requires_api_key: bool = False
+    speech: dict = field(default_factory=dict)
     load_seconds: float = 0.0
     started_at: float = field(default_factory=time.time)
     error: str = ""
@@ -134,6 +136,9 @@ class Service:
         self._corpus_cache: dict[str, CorpusSource] = {}
         self._stores: list[PassageTextStore] = []
         self.language = DEFAULT_LANGUAGE
+        # The speech provider is required by the task specification (Sarvam or
+        # ElevenLabs). Built once; it reports honestly when unconfigured.
+        self.speech = build_speech()
 
     # -- loading ---------------------------------------------------------
     def load(self) -> ServiceStatus:
@@ -180,6 +185,7 @@ class Service:
             generator_available=getattr(underlying, "available", True),
             generator_detail=underlying.status() if hasattr(underlying, "status") else {},
             requires_api_key=False,
+            speech=self.speech.status() if self.speech else {},
             load_seconds=round(time.perf_counter() - started, 2),
             metrics=self.read_metrics(prefix),
             language=language.code if language else "",
@@ -200,6 +206,19 @@ class Service:
             self.status.error = (f"index/corpus mismatch: {self.status.index_vectors} vectors "
                                  f"vs {corpus_passages} passages")
         return self.status
+
+    # -- speech ------------------------------------------------------------
+    def transcribe(self, audio: bytes, *, filename: str, language: str | None) -> dict:
+        """Transcribe speech through the configured provider."""
+        if self.speech is None:
+            raise SpeechError("no speech provider is configured")
+        locale = None
+        if language:
+            from src.languages import find as find_language
+            entry = find_language(language)
+            locale = entry.speech_locale if entry else language
+        transcript = self.speech.transcribe(audio, filename=filename, language=locale)
+        return transcript.to_dict()
 
     # -- languages ---------------------------------------------------------
     def language_roster(self) -> list[dict]:
