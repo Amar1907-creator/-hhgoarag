@@ -8,10 +8,18 @@ from src.data.deduplicate import ExactDeduplicator, passage_id
 from src.data.normalize import normalize_text
 from src.data.schema import validate_record
 
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "build_corpus.py"
-_spec = importlib.util.spec_from_file_location("build_corpus_module", _SCRIPT)
-build_corpus = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(build_corpus)
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+
+
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(f"{name}_module", _SCRIPTS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+build_corpus = _load("build_corpus")
+build_evaluation = _load("build_evaluation")
 
 
 def record():
@@ -102,6 +110,34 @@ class OutputGuardTests(unittest.TestCase):
             paths["corpus"].write_text("{}\n")
             build_corpus.assert_safe_to_write(paths, overwrite=True, append=False)
             build_corpus.assert_safe_to_write(paths, overwrite=False, append=True)
+
+
+class EvaluationOutputGuardTests(unittest.TestCase):
+    """An evaluation set built against a different corpus must not overwrite one."""
+
+    def test_prefix_controls_jsonl_and_manifest(self):
+        paths = build_evaluation.output_paths(Path("/tmp/x"), "hi-validation-smoke2k")
+        self.assertEqual(paths["evaluation"].name, "hi-validation-smoke2k-evaluation.jsonl")
+        self.assertEqual(paths["manifest"].name, "hi-validation-smoke2k-evaluation-build.json")
+
+    def test_default_prefix_matches_the_existing_baseline_names(self):
+        paths = build_evaluation.output_paths(Path("/tmp/x"), "hi-validation")
+        self.assertEqual(paths["evaluation"].name, "hi-validation-evaluation.jsonl")
+        self.assertEqual(paths["manifest"].name, "hi-validation-evaluation-build.json")
+
+    def test_existing_artifact_blocks_a_rebuild(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = {"evaluation": Path(directory) / "e.jsonl", "manifest": Path(directory) / "m.json"}
+            paths["evaluation"].write_text("{}\n")
+            with self.assertRaises(SystemExit) as caught:
+                build_evaluation.assert_safe_to_write(paths, overwrite=False)
+            self.assertIn("refusing to overwrite", str(caught.exception))
+            build_evaluation.assert_safe_to_write(paths, overwrite=True)
+
+    def test_clean_paths_are_writable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = {"evaluation": Path(directory) / "e.jsonl", "manifest": Path(directory) / "m.json"}
+            build_evaluation.assert_safe_to_write(paths, overwrite=False)
 
 
 if __name__ == "__main__": unittest.main()
