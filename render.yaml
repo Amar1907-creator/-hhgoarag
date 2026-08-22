@@ -4,7 +4,7 @@ services:
     name: hhgoarag
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter          # 512 MB will not hold the model; starter or larger
+    plan: free          # 512 MB will not hold the model; starter or larger
     healthCheckPath: /health
     envVars:
       - key: SARVAM_API_KEY
