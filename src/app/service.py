@@ -30,6 +30,27 @@ DEFAULT_EMBEDDING_MODEL = os.environ.get("HHGOARAG_EMBEDDING_MODEL", "intfloat/m
 PROCESSED = Path("data/processed")
 MANIFESTS = Path("data/manifests")
 
+# Which embedder implementation to load. "torch" (default) is the existing
+# SentenceTransformerE5 path used for local development. "onnx" is the
+# production path: no torch, no sentence-transformers, just onnxruntime and a
+# standalone tokenizer loading the official ONNX export of the same model.
+# Both produce the same 384-dim, L2-normalised vectors for the same unchanged
+# FAISS index -- this is purely a runtime-backend choice, not a model change.
+DEFAULT_EMBEDDING_BACKEND = os.environ.get("HHGOARAG_EMBEDDING_BACKEND", "torch")
+DEFAULT_ONNX_MODEL_PATH = os.environ.get(
+    "HHGOARAG_ONNX_MODEL_PATH", "data/models/multilingual-e5-small-onnx/model.onnx")
+DEFAULT_ONNX_TOKENIZER_PATH = os.environ.get(
+    "HHGOARAG_ONNX_TOKENIZER_PATH", "data/models/multilingual-e5-small-onnx/tokenizer.json")
+
+
+def build_embedder(*, backend: str, model: str, device: str | None):
+    """Resolve the configured embedder. Isolated so Service.load() stays readable."""
+    if backend == "onnx":
+        from src.retrieval.embedding import OnnxE5Embedder
+        return OnnxE5Embedder(DEFAULT_ONNX_MODEL_PATH, DEFAULT_ONNX_TOKENIZER_PATH)
+    from src.retrieval.embedding import SentenceTransformerE5
+    return SentenceTransformerE5(model, device=device)
+
 
 def resolve_device(requested: str | None = None) -> str:
     """Default to CPU for query-time embedding.
@@ -164,10 +185,25 @@ class Service:
         generator = build_generator(self.generator_kind)
 
         try:
-            self.pipeline = RagPipeline.load(corpus=corpus, index_dir=index_dir,
-                                             model=DEFAULT_EMBEDDING_MODEL, device=device,
-                                             generator=generator, top_k=self.top_k,
-                                             min_score=self.min_score)
+            if DEFAULT_EMBEDDING_BACKEND == "onnx":
+                # No torch, no sentence-transformers: build the pieces
+                # RagPipeline.load() would build, but with the ONNX embedder.
+                from src.retrieval.index import FaissHNSWIndex
+                embedder = build_embedder(backend="onnx", model=DEFAULT_EMBEDDING_MODEL, device=device)
+                loaded_index = FaissHNSWIndex.load(index_dir)
+                if loaded_index.dimension != embedder.dimension:
+                    raise SystemExit(
+                        f"index dimension {loaded_index.dimension} does not match the ONNX "
+                        f"embedder ({embedder.dimension})")
+                self.pipeline = RagPipeline(embedder=embedder, index=loaded_index,
+                                           texts=PassageTextStore.build(corpus),
+                                           generator=generator, top_k=self.top_k,
+                                           min_score=self.min_score)
+            else:
+                self.pipeline = RagPipeline.load(corpus=corpus, index_dir=index_dir,
+                                                 model=DEFAULT_EMBEDDING_MODEL, device=device,
+                                                 generator=generator, top_k=self.top_k,
+                                                 min_score=self.min_score)
         except Exception as exc:
             self.status.error = f"{type(exc).__name__}: {exc}"
             return self.status

@@ -1,8 +1,13 @@
-# HHGOARAG runtime dependencies.
+# HHGOARAG runtime dependencies -- full local development set.
 #
 # There is deliberately NO hosted-LLM SDK here. The application requires no API
 # key and no account: answer generation uses a local open-source model served by
 # Ollama, and falls back to quoting retrieved evidence when that is unavailable.
+#
+# This file is for local development, where HHGOARAG_EMBEDDING_BACKEND defaults
+# to "torch" (SentenceTransformerE5). The production image installs from
+# requirements-prod.txt instead, which excludes torch/sentence-transformers
+# entirely and runs the ONNX embedder -- see requirements-prod.txt for why.
 
 # CPU-only PyTorch. sentence-transformers pulls torch in transitively; without
 # this pin, pip resolves a default wheel that bundles CUDA/cuDNN/NCCL runtime
@@ -17,6 +22,12 @@ huggingface_hub==0.36.2
 pyarrow==23.0.1
 faiss-cpu==1.13.2
 sentence-transformers==5.3.0
+
+# The production (ONNX) embedding path, kept installed locally too so the
+# HHGOARAG_EMBEDDING_BACKEND=onnx path can be developed and tested on this
+# machine without needing a container.
+onnxruntime>=1.19
+tokenizers>=0.20
 
 # PDF ingestion. pypdf is pure Python: uploaded documents never leave the machine.
 pypdf>=3.17

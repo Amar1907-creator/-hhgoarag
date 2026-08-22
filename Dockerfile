@@ -4,12 +4,19 @@
 # without reaching the network and serves the same corpus that was benchmarked.
 # Answer generation falls back to quoting retrieved evidence: a local Ollama
 # model is not shipped here, and the fallback is still fully grounded and cited.
+#
+# Embedding runs on ONNX Runtime, not PyTorch: torch alone costs ~190 MB of
+# resident memory just to import, before any model weights, which does not fit
+# a 512 MB deployment target. The ONNX file below is the official export
+# published inside the intfloat/multilingual-e5-small repository itself --
+# same vocabulary and weights, just quantized and run without torch. See
+# src/retrieval/embedding.py:OnnxE5Embedder and requirements-prod.txt.
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     HHGOARAG_PREFIX=hi-train-5k \
-    HF_HUB_OFFLINE=1
+    HHGOARAG_EMBEDDING_BACKEND=onnx
 
 WORKDIR /app
 
@@ -17,14 +24,17 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-prod.txt ./
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
-# Pre-download the encoder at build time. Without this the first request would
-# wait on a 470 MB download, and HF_HUB_OFFLINE would make it fail outright.
-RUN HF_HUB_OFFLINE=0 python -c "\
-from sentence_transformers import SentenceTransformer; \
-SentenceTransformer('intfloat/multilingual-e5-small')"
+# Fetch the ONNX model and tokenizer at build time with curl (already
+# installed above) rather than any Python HF client -- there is no
+# huggingface_hub in this image, and none is needed for two files.
+RUN mkdir -p data/models/multilingual-e5-small-onnx \
+ && curl -fsSL -o data/models/multilingual-e5-small-onnx/model.onnx \
+      https://huggingface.co/intfloat/multilingual-e5-small/resolve/main/onnx/model_qint8_avx512_vnni.onnx \
+ && curl -fsSL -o data/models/multilingual-e5-small-onnx/tokenizer.json \
+      https://huggingface.co/intfloat/multilingual-e5-small/resolve/main/tokenizer.json
 
 COPY src/ src/
 COPY scripts/ scripts/

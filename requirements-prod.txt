@@ -1,0 +1,28 @@
+# HHGOARAG production dependencies -- the ONNX embedding path.
+#
+# Deliberately NO torch, NO sentence-transformers, NO huggingface_hub, NO
+# pyarrow: those are only needed for local development (requirements.txt) and
+# the offline data-ingestion pipeline. Neither is imported anywhere on the
+# serving path (src/app/, src/rag/, src/retrieval/), and torch alone costs
+# ~190 MB of resident memory just to import, before any model weights -- the
+# dominant reason the fp32 PyTorch path does not fit in a 512 MB deployment.
+#
+# The embedder here is OnnxE5Embedder (src/retrieval/embedding.py), which
+# loads the official ONNX export published inside the
+# intfloat/multilingual-e5-small repository itself (baked into the image by
+# the Dockerfile, not downloaded at runtime) and runs it with onnxruntime
+# directly. Same 384-dim, L2-normalised output as the fp32 model; the existing
+# FAISS index and corpus are used completely unchanged.
+
+faiss-cpu==1.13.2
+onnxruntime>=1.19
+tokenizers>=0.20
+
+# PDF ingestion. pypdf is pure Python: uploaded documents never leave the machine.
+pypdf>=3.17
+
+# Application layer.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pydantic>=2
