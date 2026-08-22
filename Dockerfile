@@ -34,7 +34,6 @@ COPY data/manifests/ data/manifests/
 # The built corpus and index. Build the image from a checkout where these exist.
 COPY data/processed/hi-train-5k-corpus.jsonl data/processed/
 COPY data/processed/hi-train-5k-index/ data/processed/hi-train-5k-index/
-COPY data/processed/hi-validation-5k-evaluation.jsonl data/processed/
 COPY data/demo/ data/demo/
 
 EXPOSE 8000
