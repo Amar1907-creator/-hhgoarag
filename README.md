@@ -53,53 +53,6 @@ Two properties are enforced in code, not by prompting:
   eventually corrupt one, and a corrupted citation cannot be told apart from an
   invented one.
 
-## Your own PDFs
-
-Beyond the Hindi corpus, HHGOARAG answers questions about documents you upload.
-Everything happens on your machine: `pypdf` is a pure-Python reader, and the
-uploaded file is never transmitted anywhere.
-
-```
-PDF → validate → extract text per page → chunk (never across a page boundary)
-    → embed → per-document FAISS index → retrieve → grounded answer
-    → citation naming the actual page
-```
-
-In the interface: drop a PDF on the upload panel, watch it move through
-**uploading → extracting → chunking → embedding → indexing → ready**, then pick
-it in the **Knowledge source** selector and ask. The answer's **Sources**
-section names the file and the exact pages used:
-
-> **GOA Task-2.pdf** — `Page 7`
-
-Every retrieved chunk carries its document ID, document name, page number,
-chunk ID and text, so a citation always points at a page a human can turn to.
-Chunks never span pages: that costs a little packing efficiency and buys the
-page number being true.
-
-**Ask by voice.** The microphone records audio in the browser and posts it to
-`/api/transcribe`, which transcribes it with **Sarvam** (`saarika`) — the
-provider the task specification requires. Set `SARVAM_API_KEY` to enable it. If
-no provider key is present the interface falls back to the browser's own
-recogniser and says so. Voice works against an uploaded PDF exactly as it does
-against the corpus.
-
-**What happens with a difficult PDF**
-
-| Input | Behaviour |
-|---|---|
-| Scanned / image-only | Refused with "appears to be scanned images… this build does not run OCR". No empty document is created. |
-| Corrupted or truncated | Refused as damaged; the server stays up. |
-| Password protected | Refused as encrypted. |
-| Empty, or not a PDF | Rejected before any processing. |
-| Very large | Truncated at a page and character budget, and the record says so. |
-| Uploaded twice | Content-addressed: the same bytes return the existing index instead of re-embedding. |
-| Hindi, English or mixed | All extracted; the fixture covers all three. |
-
-Uploaded documents live under `data/documents/<document_id>/`, entirely apart
-from the Hindi corpus artifacts. Uploading a PDF cannot touch the corpus, and
-documents indexed in an earlier run are re-attached at startup.
-
 ### Document API
 
 | Endpoint | Purpose |

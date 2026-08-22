@@ -105,9 +105,6 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
   padding:8px 14px;border-radius:9px;font-size:13.5px;font-weight:500;display:flex;gap:8px;align-items:center}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .seg .n{font-size:11px;opacity:.75}
-.drop{border:1.5px dashed var(--line);border-radius:11px;padding:16px;text-align:center;
-  color:var(--ink-3);font-size:13.5px;cursor:pointer;transition:border-color .15s,background .15s}
-.drop:hover,.drop.over{border-color:var(--accent);color:var(--ink-2);background:var(--panel-2)}
 .doc{border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-top:10px;background:var(--panel-2)}
 .doc-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .doc-name{font-weight:600;font-size:14.5px;flex:1;min-width:140px;word-break:break-all}
@@ -144,7 +141,7 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
       <div class="mark">हि</div>
       <div>
         <h1>HHGOARAG</h1>
-        <p class="tag">Hindi grounded retrieval &mdash; answers backed by cited passages</p>
+        <p class="tag">Multilingual grounded retrieval &mdash; answers backed by cited passages</p>
       </div>
     </div>
     <div class="pill" id="status"><span class="dot" id="dot"></span><span id="statustext">connecting…</span></div>
@@ -158,10 +155,6 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
     </div>
     <div class="lbl" style="margin-bottom:8px">Knowledge source</div>
     <div class="seg" id="seg" role="group" aria-label="Knowledge source"></div>
-    <div class="drop" id="drop" role="button" tabindex="0" aria-label="Upload a PDF">
-      <b>Upload a PDF</b> — drag it here or click to choose. Processed on this machine.
-      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
-    </div>
     <div id="docs"></div>
     <div style="height:16px"></div>
     <label for="q" class="sr">अपना प्रश्न हिंदी में लिखें</label>
@@ -185,7 +178,7 @@ footer code{background:var(--panel-2);padding:2px 6px;border-radius:5px}
 
   <footer>
     Retrieval decides what is true; the language model only phrases it.<br>
-    Runs entirely on this machine &mdash; no hosted API, no API key.
+    Runs locally on this machine. Speech recognition via <a href="https://sarvam.ai" style="color:var(--accent);text-decoration:none">Sarvam AI</a> (requires <code>SARVAM_API_KEY</code> environment variable).
   </footer>
 </div>
 
@@ -309,24 +302,7 @@ async function refreshSources(){
   }catch(e){}
 }
 
-async function uploadFile(file){
-  if(!file) return;
-  if(!/\.pdf$/i.test(file.name)){ showError("Only PDF files are supported", file.name); return; }
-  $("docs").insertAdjacentHTML("afterbegin",
-    `<div class="doc"><div class="doc-top"><span class="doc-i">&#128196;</span>
-     <span class="doc-name">${esc(file.name)}</span><span class="badge">uploading…</span></div>
-     <div class="steps">${stepList("uploading")}</div></div>`);
-  const form = new FormData();
-  form.append("file", file);
-  try{
-    const r = await fetch("/api/documents", {method:"POST", body:form});
-    const d = await r.json();
-    if(!r.ok){ showError("Upload failed", d.detail || r.statusText); refreshDocs(); return; }
-    await refreshDocs();
-    if(d.ready){ await refreshSources(); SOURCE = "document:" + d.document_id; renderSources(); }
-    else pollDoc(d.document_id);
-  }catch(e){ showError("Upload failed", String(e)); }
-}
+
 
 function currentLang(){ return LANGS.find(l => l.code === LANG) || null; }
 
@@ -600,17 +576,6 @@ $("lang").onchange = async (e) => {
   LANG = e.target.value; SOURCE = null;
   applyLanguage(); await refreshSources();
 };
-
-$("drop").onclick = () => $("file").click();
-$("drop").addEventListener("keydown", e => {
-  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); $("file").click(); }
-});
-$("file").onchange = (e) => uploadFile(e.target.files[0]);
-["dragenter","dragover"].forEach(evt => $("drop").addEventListener(evt, e => {
-  e.preventDefault(); $("drop").classList.add("over"); }));
-["dragleave","drop"].forEach(evt => $("drop").addEventListener(evt, e => {
-  e.preventDefault(); $("drop").classList.remove("over"); }));
-$("drop").addEventListener("drop", e => uploadFile(e.dataTransfer.files[0]));
 
 $("ask").onclick = ask;
 $("clear").onclick = () => { $("q").value = ""; out.style.display = "none"; $("q").focus(); };

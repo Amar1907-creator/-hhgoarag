@@ -1,0 +1,66 @@
+{
+  "model": "intfloat/multilingual-e5-small",
+  "device": null,
+  "embedding_dimension": 384,
+  "corpus": "data/processed/hi-train-corpus.jsonl",
+  "corpus_passages": 994,
+  "evaluation": "data/processed/hi-validation-evaluation.jsonl",
+  "evaluation_queries": 100,
+  "top_k": 10,
+  "batch_size": 64,
+  "metadata_backend": "offset",
+  "metrics": {
+    "queries": 100,
+    "recall_at_1": 0.01,
+    "recall_at_5": 0.02,
+    "recall_at_10": 0.02,
+    "mrr": 0.015
+  },
+  "warm_latency": {
+    "query_embedding": {
+      "count": 100,
+      "min_ms": 9.37474999227561,
+      "mean_ms": 12.998040769598447,
+      "p50_ms": 11.240333500609268,
+      "p70_ms": 11.842771199007984,
+      "p95_ms": 25.06591909113922,
+      "p100_ms": 52.96620800800156
+    },
+    "ann_search": {
+      "count": 100,
+      "min_ms": 0.06166700040921569,
+      "mean_ms": 0.10654746962245554,
+      "p50_ms": 0.10006250522565097,
+      "p70_ms": 0.11656689748633653,
+      "p95_ms": 0.14814170717727393,
+      "p100_ms": 0.279416999546811
+    },
+    "metadata_lookup": {
+      "count": 100,
+      "min_ms": 0.07929099956527352,
+      "mean_ms": 0.10396956975455396,
+      "p50_ms": 0.09849999332800508,
+      "p70_ms": 0.10921260109171271,
+      "p95_ms": 0.144604157685535,
+      "p100_ms": 0.1661669957684353
+    },
+    "total_retrieval": {
+      "count": 100,
+      "min_ms": 9.606292005628347,
+      "mean_ms": 13.209112520125927,
+      "p50_ms": 11.419916496379301,
+      "p70_ms": 12.015716997848358,
+      "p95_ms": 25.25270270416513,
+      "p100_ms": 53.24579100124538
+    }
+  },
+  "index_bytes": 1796602,
+  "metadata_rows": 994,
+  "timestamp": "2026-08-21T16:27:25.542046+00:00",
+  "index_build": {
+    "seconds": 20.099294500003452,
+    "passages_per_second": 49.45447214576757,
+    "resumed_from": 0,
+    "checkpoint_every_batches": 50
+  }
+}

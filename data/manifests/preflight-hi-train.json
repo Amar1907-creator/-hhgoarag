@@ -1,0 +1,189 @@
+{
+  "dataset_id": "ai4bharat/MSMARCO-XI",
+  "revision": "bf5cdc1f26e581e519018e434db14edd1b77602b",
+  "config": "hi",
+  "split": "train",
+  "timestamp": "2026-08-21T17:57:25.981531+00:00",
+  "python": "3.11.7",
+  "platform": "Darwin arm64",
+  "limit": 5,
+  "status": "PASSED WITH WARNINGS",
+  "elapsed_seconds": 108.46378754200123,
+  "peak_rss_mb": 157.25,
+  "measurements": {
+    "dataset_info_ms": 449.8082080099266,
+    "rows": 778638,
+    "row_groups": 1,
+    "footer_bytes": 65536,
+    "footer_ms": 2345.5069579940755,
+    "prefix_bytes": 8586910,
+    "first_batch_ms": 104672.83791599039,
+    "records_read": 5
+  },
+  "checks": [
+    {
+      "check": "python_version",
+      "status": "PASS",
+      "detail": "3.11.7 (Darwin arm64)",
+      "version": "3.11.7"
+    },
+    {
+      "check": "dependency:huggingface_hub",
+      "status": "PASS",
+      "detail": "0.36.2",
+      "installed": "0.36.2"
+    },
+    {
+      "check": "dependency:pyarrow",
+      "status": "PASS",
+      "detail": "23.0.1",
+      "installed": "23.0.1"
+    },
+    {
+      "check": "dependency:fsspec",
+      "status": "PASS",
+      "detail": "2023.10.0",
+      "installed": "2023.10.0"
+    },
+    {
+      "check": "dependency:faiss-cpu",
+      "status": "PASS",
+      "detail": "1.13.2",
+      "installed": "1.13.2"
+    },
+    {
+      "check": "dependency:sentence-transformers",
+      "status": "PASS",
+      "detail": "5.3.0",
+      "installed": "5.3.0"
+    },
+    {
+      "check": "datasets_not_used",
+      "status": "WARN",
+      "detail": "installed but deliberately unused: its streaming conversion fails on this nested passages struct"
+    },
+    {
+      "check": "writable:processed",
+      "status": "PASS",
+      "detail": "data/processed"
+    },
+    {
+      "check": "writable:manifests",
+      "status": "PASS",
+      "detail": "data/manifests"
+    },
+    {
+      "check": "memory_total",
+      "status": "PASS",
+      "detail": "17.2 GB",
+      "gb": 17.179869184
+    },
+    {
+      "check": "memory_this_process",
+      "status": "PASS",
+      "detail": "27 MB peak RSS so far",
+      "mb": 26.515625
+    },
+    {
+      "check": "disk_free",
+      "status": "PASS",
+      "detail": "235.6 GB free",
+      "gb": 235.553337344
+    },
+    {
+      "check": "pinned_revision",
+      "status": "PASS",
+      "detail": "bf5cdc1f26e581e519018e434db14edd1b77602b"
+    },
+    {
+      "check": "revision_accessible",
+      "status": "PASS",
+      "detail": "ai4bharat/MSMARCO-XI@bf5cdc1f26e5 in 450 ms",
+      "sha": "bf5cdc1f26e581e519018e434db14edd1b77602b"
+    },
+    {
+      "check": "parquet_exists",
+      "status": "PASS",
+      "detail": "train/hintrain.parquet",
+      "path": "train/hintrain.parquet"
+    },
+    {
+      "check": "network_latency",
+      "status": "PASS",
+      "detail": "metadata round trip 450 ms"
+    },
+    {
+      "check": "download_timeout",
+      "status": "PASS",
+      "detail": "HF_HUB_DOWNLOAD_TIMEOUT=60s"
+    },
+    {
+      "check": "remote_open",
+      "status": "PASS",
+      "detail": "opened in 624 ms via datasets/ai4bharat/MSMARCO-XI@bf5cdc1f26e581e519018e434db14edd1b77602b/train/hintrain.parquet"
+    },
+    {
+      "check": "parquet_metadata",
+      "status": "PASS",
+      "detail": "778,638 rows, 1 row group(s), footer read 0.07 MB in 2346 ms"
+    },
+    {
+      "check": "row_count",
+      "status": "PASS",
+      "detail": "778,638 matches the pinned inventory"
+    },
+    {
+      "check": "schema_fields",
+      "status": "PASS",
+      "detail": "all 10 documented columns present"
+    },
+    {
+      "check": "passages_struct",
+      "status": "PASS",
+      "detail": "struct<English_passages, Translated_passages, is_selected>"
+    },
+    {
+      "check": "range_read_bounded",
+      "status": "PASS",
+      "detail": "5 records cost 8.6 MB = 0.23% of the 3.72 GB file, in 104673 ms",
+      "prefix_bytes": 8586910,
+      "fraction": 0.0023084250705054025
+    },
+    {
+      "check": "memory_after_read",
+      "status": "PASS",
+      "detail": "157 MB peak RSS",
+      "mb": 157.25
+    },
+    {
+      "check": "first_record",
+      "status": "PASS",
+      "detail": "query_id=1185869 matches the recorded first row"
+    },
+    {
+      "check": "target_lang",
+      "status": "PASS",
+      "detail": "hin_Deva"
+    },
+    {
+      "check": "nested_passages",
+      "status": "PASS",
+      "detail": "5 records decoded, 10-10 passages each, all three lists aligned"
+    },
+    {
+      "check": "is_selected_flags",
+      "status": "PASS",
+      "detail": "values [0, 1]"
+    },
+    {
+      "check": "schema_validation",
+      "status": "PASS",
+      "detail": "5 records valid (0 field warnings)"
+    },
+    {
+      "check": "normalization_and_ids",
+      "status": "PASS",
+      "detail": "50 passages -> 49 unique, 1 duplicate, 0 empty"
+    }
+  ]
+}

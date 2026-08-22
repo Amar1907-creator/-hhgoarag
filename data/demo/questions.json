@@ -1,0 +1,26 @@
+[
+  {
+    "question": "अलमारियों को फिर से रंगने की लागत",
+    "expect": "evidence",
+    "label": "strong single-passage evidence",
+    "best_score": 0.9557
+  },
+  {
+    "question": "त्वचा पर जैतून के तेल के दुष्प्रभाव",
+    "expect": "evidence",
+    "label": "answer drawn from several passages",
+    "best_score": 0.9503
+  },
+  {
+    "question": "किसी को एक दिन में कितने लीटर पानी पीना चाहिए",
+    "expect": "evidence",
+    "label": "realistic Hindi query",
+    "best_score": 0.9348
+  },
+  {
+    "question": "कौन सी काउंटी में कॉटेज ग्रोव है, या किस में?",
+    "expect": "evidence",
+    "label": "realistic Hindi query",
+    "best_score": 0.9325
+  }
+]

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 SARVAM_ENDPOINT = os.environ.get("SARVAM_STT_ENDPOINT", "https://api.sarvam.ai/speech-to-text")
-SARVAM_MODEL = os.environ.get("SARVAM_STT_MODEL", "saarika:v2")
+SARVAM_MODEL = os.environ.get("SARVAM_STT_MODEL", "saaras:v3")
 ELEVENLABS_ENDPOINT = os.environ.get("ELEVENLABS_STT_ENDPOINT",
                                      "https://api.elevenlabs.io/v1/speech-to-text")
 ELEVENLABS_MODEL = os.environ.get("ELEVENLABS_STT_MODEL", "scribe_v1")
@@ -183,7 +183,8 @@ class SarvamSTT(_HttpProvider):
 
     def _send(self, audio: bytes, filename: str, language: str | None) -> dict:
         # Sarvam expects a BCP-47-style code such as hi-IN; "unknown" asks it to detect.
-        fields = {"model": self.model, "language_code": language or "unknown"}
+        # saaras:v3 requires mode=transcribe for speech-to-text endpoint
+        fields = {"model": self.model, "language_code": language or "unknown", "mode": "transcribe"}
         if self._transport is not None:
             return self._transport({"fields": fields, "audio": audio, "filename": filename})
         body, content_type = encode_multipart(fields, filename, audio)
