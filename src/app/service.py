@@ -32,20 +32,20 @@ MANIFESTS = Path("data/manifests")
 
 
 def resolve_device(requested: str | None = None) -> str:
-    """Prefer Apple Silicon acceleration when it is actually usable."""
+    """Default to CPU for query-time embedding.
+
+    Measured on this machine: a single query's embedding costs 18-20ms on CPU
+    versus 240-350ms on MPS. Apple's Metal backend pays a fixed per-call
+    dispatch/transfer cost that only amortises over large batches -- exactly
+    what happens once at corpus-build time, not what happens here, where one
+    query is embedded per request. GPU acceleration is still available on
+    request, it is just no longer auto-selected for serving.
+    """
     if requested:
         return requested
     override = os.environ.get("HHGOARAG_DEVICE")
     if override:
         return override
-    try:
-        import torch
-        if torch.backends.mps.is_available():
-            return "mps"
-        if torch.cuda.is_available():
-            return "cuda"
-    except Exception:
-        pass
     return "cpu"
 
 
@@ -113,7 +113,7 @@ class ServiceStatus:
 class Service:
     """Holds the loaded pipeline. Thread-safe for the single-process server."""
 
-    def __init__(self, *, prefix: str | None = None, generator_kind: str = "auto",
+    def __init__(self, *, prefix: str | None = None, generator_kind: str = "extractive",
                  device: str | None = None, top_k: int = 10, min_score: float | None = None,
                  pipeline: RagPipeline | None = None, status: ServiceStatus | None = None,
                  documents: DocumentStore | None = None) -> None:

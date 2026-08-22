@@ -1,5 +1,13 @@
 # Generated corpus, index, and dedup state. Never commit downloaded dataset data.
-data/processed/
+# Exception: the specific build used for deployment is tracked via Git LFS
+# (see .gitattributes) so Render's own build step has it -- a trailing-slash
+# directory match can't be selectively un-ignored, so this uses the same
+# "exclude everything, then re-include exactly these paths" pattern already
+# used in .dockerignore for the same two paths.
+data/processed/*
+!data/processed/hi-train-5k-corpus.jsonl
+!data/processed/hi-train-5k-index
+!data/processed/hi-train-5k-index/**
 data/documents/
 
 # Python bytecode and environments

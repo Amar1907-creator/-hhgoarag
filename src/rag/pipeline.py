@@ -12,13 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from src.rag.evidence import EvidenceSet, select_evidence, validate_citations
-from src.rag.guardrails import screen_input, screen_output
+from src.rag.guardrails import screen_input, screen_output, screen_relevance
 from src.rag.generator import ExtractiveGenerator, Generator
 from src.rag.sources import CorpusSource, KnowledgeSource
 from src.rag.store import PassageTextStore
 
 REASON_UNGROUNDED = "answer_without_valid_citations"
 REASON_MODEL_ABSTAINED = "model_reported_insufficient_evidence"
+REASON_ENTITY_MISMATCH = "evidence_entity_mismatch"
 
 
 @dataclass
@@ -133,6 +134,16 @@ class RagPipeline:
         evidence: EvidenceSet = select_evidence(hits, texts, **kwargs)
         if not evidence.eligible:
             result.reason = evidence.reason
+            timings["total"] = (time.perf_counter() - overall) * 1e3
+            result.timings_ms = {name: round(value, 2) for name, value in timings.items()}
+            return result
+
+        # Guardrail 2: refuse before the (expensive) model call when the
+        # evidence is plainly about a different country than the question.
+        relevance = screen_relevance(question, [item.text for item in evidence.items])
+        result.guardrail = {**result.guardrail, "relevance": relevance.to_dict()}
+        if not relevance.allowed:
+            result.reason = REASON_ENTITY_MISMATCH
             timings["total"] = (time.perf_counter() - overall) * 1e3
             result.timings_ms = {name: round(value, 2) for name, value in timings.items()}
             return result

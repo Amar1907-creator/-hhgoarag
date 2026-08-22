@@ -41,4 +41,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s \
   CMD curl -fsS http://127.0.0.1:${PORT:-8000}/health || exit 1
 
-CMD ["python", "scripts/run_app.py", "--host", "0.0.0.0", "--no-browser"]
+CMD ["python", "scripts/run_app.py", "--host", "0.0.0.0", "--generator", "extractive", "--no-browser"]

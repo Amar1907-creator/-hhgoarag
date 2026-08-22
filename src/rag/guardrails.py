@@ -36,6 +36,7 @@ BLOCK_EMPTY = "empty_question"
 BLOCK_TOO_LONG = "question_too_long"
 BLOCK_NO_CONTENT = "no_recognisable_question"
 BLOCK_UNGROUNDED = "answer_not_supported_by_evidence"
+BLOCK_ENTITY_MISMATCH = "evidence_entity_mismatch"
 ALLOWED = "allowed"
 
 # First-line lexical screen in English and Devanagari. Deliberately narrow: it
@@ -150,6 +151,68 @@ def grounding_overlap(answer: str, evidence_texts: list[str]) -> float:
     for text in evidence_texts:
         evidence_words |= content_words(text)
     return len(answer_words & evidence_words) / len(answer_words)
+
+
+# A small, deliberately partial set of country names/demonyms in Hindi and
+# English. Not a gazetteer -- it exists to catch the loudest, cheapest-to-catch
+# failure mode seen in practice: retrieval returning evidence about a
+# different country than the one named in the question (e.g. "भारत के पहले
+# राष्ट्रपति" answered from a passage about American presidents, where "पहले
+# राष्ट्रपति" matches lexically but the country does not). Absence from this
+# list blocks nothing; presence only blocks when the question and the evidence
+# name *different*, non-overlapping countries, so ordinary questions that name
+# no country (the large majority of this corpus) are never touched by it.
+COUNTRY_TERMS: dict[str, tuple[str, ...]] = {
+    "india": ("भारत", "भारतीय", "hindustan", "india", "indian"),
+    "usa": ("अमेरिका", "अमेरिकी", "संयुक्त राज्य", "यूएसए",
+            "usa", "america", "american", "united states"),
+    "uk": ("ब्रिटेन", "इंग्लैंड", "यूनाइटेड किंगडम", "britain", "england", "united kingdom"),
+    "china": ("चीन", "चीनी", "china", "chinese"),
+    "pakistan": ("पाकिस्तान", "पाकिस्तानी", "pakistan"),
+    "russia": ("रूस", "रूसी", "सोवियत", "russia", "russian", "soviet"),
+    "japan": ("जापान", "जापानी", "japan", "japanese"),
+    "france": ("फ्रांस", "फ़्रांस", "france", "french"),
+    "germany": ("जर्मनी", "germany", "german"),
+    "canada": ("कनाडा", "canada", "canadian"),
+    "australia": ("ऑस्ट्रेलिया", "australia", "australian"),
+    "brazil": ("ब्राज़ील", "ब्राजील", "brazil", "brazilian"),
+    "italy": ("इटली", "italy", "italian"),
+    "spain": ("स्पेन", "spain", "spanish"),
+    "nepal": ("नेपाल", "नेपाली", "nepal", "nepali"),
+    "bangladesh": ("बांग्लादेश", "बांग्लादेशी", "bangladesh", "bangladeshi"),
+}
+
+ENTITY_MISMATCH_MESSAGE = (
+    "The retrieved evidence appears to be about a different country than the "
+    "one asked about, so the answer was withheld rather than guessed.")
+
+
+def mentioned_countries(text: str) -> set[str]:
+    """Which of a small set of country/demonym names appear in this text."""
+    normalized = unicodedata.normalize("NFKC", (text or "")).lower()
+    return {country for country, terms in COUNTRY_TERMS.items()
+            if any(term in normalized for term in terms)}
+
+
+def screen_relevance(question: str, evidence_texts: list[str]) -> Verdict:
+    """Retrieval screening: refuse evidence that names a different country.
+
+    Deliberately narrow, like the other guardrails here: it only fires when the
+    question names a country/demonym AND the retrieved evidence names a
+    *different* one with no overlap. It cannot catch every entity mismatch
+    (person names, cities, organisations all pass through untouched), but it
+    catches the clearest and costliest one -- for free, and before the model is
+    even called, since generation is the expensive step this saves.
+    """
+    wanted = mentioned_countries(question)
+    if not wanted:
+        return Verdict()
+    found = mentioned_countries(" ".join(evidence_texts))
+    if not found or wanted & found:
+        return Verdict()
+    return Verdict(False, BLOCK_ENTITY_MISMATCH, ENTITY_MISMATCH_MESSAGE,
+                   category="entity_mismatch",
+                   detail={"question_countries": sorted(wanted), "evidence_countries": sorted(found)})
 
 
 def screen_output(answer: str, cited_texts: list[str], *,

@@ -28,6 +28,10 @@ from src.rag.evidence import EvidenceSet
 DEFAULT_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 DEFAULT_TIMEOUT = float(os.environ.get("HHGOARAG_LLM_TIMEOUT", "120"))
 DEFAULT_NUM_PREDICT = 400
+# The preferred local model for a normal startup: small enough to load and
+# evaluate the prompt quickly, still good enough for grounded Hindi
+# instruction-following. HHGOARAG_LLM_MODEL still overrides this when set.
+DEFAULT_LLM_MODEL = os.environ.get("HHGOARAG_LLM_MODEL", "qwen2.5:3b-instruct")
 
 # Ranked by Hindi instruction-following quality per GB of RAM. The first entry
 # that is actually installed wins; nothing is downloaded implicitly.
@@ -187,7 +191,7 @@ class OllamaGenerator:
         self.timeout = timeout
         self.num_predict = num_predict
         self._transport = transport or (lambda payload: _post_json(f"{self.host}/api/chat", payload, self.timeout))
-        requested = model or os.environ.get("HHGOARAG_LLM_MODEL")
+        requested = model or DEFAULT_LLM_MODEL
         self.available_models = installed_models(self.host) if transport is None else [requested or RECOMMENDED_SMALL]
         self.model = requested or choose_model(self.available_models) or ""
         self.available = bool(self.model)

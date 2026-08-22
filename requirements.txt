@@ -4,6 +4,14 @@
 # key and no account: answer generation uses a local open-source model served by
 # Ollama, and falls back to quoting retrieved evidence when that is unavailable.
 
+# CPU-only PyTorch. sentence-transformers pulls torch in transitively; without
+# this pin, pip resolves a default wheel that bundles CUDA/cuDNN/NCCL runtime
+# libraries the deployment target (CPU-only) never uses, roughly doubling image
+# size and build time for nothing. Version matches the latest wheel available
+# on both indexes so pip's resolver has no conflict to arbitrate.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.13.0+cpu
+
 # Offline data pipeline: pinned remote Parquet ingestion and retrieval.
 huggingface_hub==0.36.2
 pyarrow==23.0.1
